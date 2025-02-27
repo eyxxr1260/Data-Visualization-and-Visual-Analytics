@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Theme River</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      body {
+        font-family: "Times New Roman", Times, serif;
+      }
+
+      h1 {
+        display: flex;
+        font-family: "Times New Roman", Times, serif;
+        justify-content: center;
+        margin: 0%;
+      }
+
+      .typeSelector {
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .switch-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      /* Style for the tooltip */
+      .tooltip {
+        position: absolute;
+        opacity: 0;
+        background-color: #bab9ab;
+        padding: 5px;
+        pointer-events: none;
+        font-size: 12px;
+        font-weight: bold;
+      }
+
+      .switch {
+        position: relative;
+        width: 60px; /* 增加寬度以容納 "ON" 和 "OFF" 的文字 */
+        height: 25px;
+        -webkit-appearance: none;
+        background-color: #ccc;
+        outline: none;
+        border-radius: 25px;
+        transition: background-color 0.2s;
+        cursor: pointer;
+      }
+
+      .switch:before {
+        content: "OFF";
+        position: absolute;
+        color: white;
+        left: 30px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        transition: color 0.2s;
+      }
+
+      .switch:checked:before {
+        content: "ON"; /* 改變為 "ON" */
+        left: 10px; /* 調整位置，讓 "ON" 正確顯示 */
+      }
+
+      .switch:checked {
+        background-color: #618d7d;
+      }
+
+      .switch:after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: white;
+        top: 2.5px;
+        left: 2.5px;
+        transition: transform 0.2s;
+      }
+
+      .switch:checked:after {
+        transform: translateX(35px); /* 滑動圓點，與文字同步 */
+      }
+
+      .switch-container label {
+        margin-left: 10px;
+      }
+
+      /* Style for the dropdown menus */
+      #menus {
+        font-size: 15px;
+        font-family: "Times New Roman", Times, serif;
+      }
+
+      /* Style for the select elements in the menus */
+      #menus select {
+        font-family: "Times New Roman", Times, serif;
+        background: #b3b3b3;
+        color: #fff;
+        margin: 5px;
+        padding: 8px;
+        width: 240px;
+        border: none;
+        font-size: 15px;
+      }
+
+      /* Style for the options in the select elements */
+      #menus select option {
+        text-align: center;
+        font-size: 15px;
+      }
+
+      #typeSelector {
+        text-align: center;
+        font-family: "Times New Roman", Times, serif;
+      }
+      #typeSelector input {
+        text-align: center;
+        font-family: "Times New Roman", Times, serif;
+      }
+
+      /*.range{
+        background-image:-webkit-linear-gradient(left ,#f22 0%,#f22 50%,#fff 50%, #fff 100%);
+      }*/
+
+      input[type="range"] {
+        height: 30px;
+        width: 180px;
+        overflow: hidden;
+        cursor: pointer; /* 滑鼠放上會改變鼠標樣式 */
+        outline: none; /* 取消底線效果 */
+        background-color: white; /* 為了解釋方便所設定 */
+        /* background-color: grey; */ /* 我的目標樣式 */
+        margin: 0 10px 0;
+      }
+      /* 滑動軌道 樣式 */
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 6px;
+        width: 180px;
+        border-radius: 4px;
+        background: #7185c4f2;
+      }
+      /* 滑動鈕 樣式 */
+      input[type="range"]::-webkit-slider-thumb {
+        position: relative;
+        height: 16px;
+        width: 16px;
+        margin-top: -5px; /* 會受到寬高影響定位，需微調 */
+        background-color: rgb(227, 147, 123); /* 為了解釋方便所設定 */
+        border-radius: 50%;
+        border: 1px solid black;
+      }
+      .tick text {
+        font-size: 12px;
+        fill: #635f5d;
+      }
+      .tick line {
+        stroke: #c0c0bb;
+      }
+
+      .axis-label {
+        font-size: 20px;
+        fill: #8e8883;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Theme River — Type / Number of bedrooms</h1>
+    <div id="typeSelector">
+      <h3>How to Use</h3>
+      <p>
+        1. Use the switches to select or reorder the property types and bedroom
+        numbers you want to display.
+      </p>
+      <p>
+        2. Adjust the "SVG Width" and "SVG Height" sliders to resize the chart.
+      </p>
+      <p>
+        3. Hover over the colored areas along the vertical axis (x-axis lines)
+        to view the date and the corresponding data values.
+      </p>
+      <p>
+        4. Use the "Time Order" dropdown to sort the data in ascending or
+        descending order by date.
+      </p>
+
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="house2"
+          value="house2"
+          class="switch"
+          checked
+        />
+        <label for="house2">House / 2</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="house3"
+          value="house3"
+          class="switch"
+          checked
+        />
+        <label for="house3">House / 3</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="house4"
+          value="house4"
+          class="switch"
+          checked
+        />
+        <label for="house4">House / 4</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="house5"
+          value="house5"
+          class="switch"
+          checked
+        />
+        <label for="house5">House / 5</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="unit1"
+          value="unit1"
+          class="switch"
+          checked
+        />
+        <label for="unit1">Unit / 1</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="unit2"
+          value="unit2"
+          class="switch"
+          checked
+        />
+        <label for="unit2">Unit / 2</label>
+      </div>
+      <div class="switch-container">
+        <input
+          type="checkbox"
+          id="unit3"
+          value="unit3"
+          class="switch"
+          checked
+        />
+        <label for="unit3">Unit / 3</label>
+      </div>
+    </div>
+    <div id="menus">
+      <label for="sort-order-selector">Time Order:</label>
+      <select id="sort-order-selector">
+        <option value="ascending" selected>Ascending</option>
+        <option value="descending">Descending</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="width-slider">SVG Width:</label>
+      <input
+        type="range"
+        class="range"
+        id="width-slider"
+        min="900"
+        max="1500"
+        step="10"
+      />
+      <span id="width-value"></span>
+      <br />
+      <label for="height-slider">SVG Height:</label>
+      <input
+        type="range"
+        class="range"
+        id="height-slider"
+        min="300"
+        max="500"
+        step="10"
+      />
+      <span id="height-value"></span>
+    </div>
+
+    <script>
+      d3.csv("http://vis.lab.djosix.com:2024/data/ma_lga_12345.csv").then(
+        function (data) {
+          // Define
+          var svgWidth = 1500,
+            svgHeight = 550;
+          const margin = {
+            top: 50,
+            right: 230,
+            bottom: 200,
+            left: 120,
+          };
+          var width = svgWidth - margin.left - margin.right;
+          var height = svgHeight - margin.top - margin.bottom;
+
+          const widthSlider = document.getElementById("width-slider");
+          const widthValue = document.getElementById("width-value");
+          const heightSlider = document.getElementById("height-slider");
+          const heightValue = document.getElementById("height-value");
+          widthSlider.value = svgWidth;
+          heightSlider.value = svgHeight;
+          widthValue.textContent = svgWidth;
+          heightValue.textContent = svgHeight;
+
+          var sortOrder = "ascending";
+
+          // Initialize the svg
+          const svg = d3
+            .select("body")
+            .append("svg")
+            .attr("width", svgWidth)
+            .attr("height", svgHeight)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+          // Initialize data
+          // sale date: dd/mm/yy => yy/mm/dd
+          data.forEach(function (d) {
+            var parts = d.saledate.split("/");
+            d.saledate = parts[2] + "/" + parts[1] + "/" + parts[0];
+          });
+
+          // Listen to the change event on the sort-order selector dropdown
+          d3.select("#sort-order-selector").on("change", function () {
+            // Get the selected sort order value
+            sortOrder = this.value;
+            if (sortOrder === "descending") {
+              updateChart(selectedTypes, "descending");
+            } else if (sortOrder === "ascending") {
+              updateChart(selectedTypes, "ascending");
+            }
+          });
+
+          // Select all checkboxes on the page
+          const checkboxes = document.querySelectorAll(
+            'input[type="checkbox"]'
+          );
+
+          let selectedTypes = [];
+          // Listen to the change event on checkboxes
+          checkboxes.forEach((checkbox) => {
+            checkbox.addEventListener("change", function () {
+              // If the checkbox is checked, add the type to selectedTypes
+              if (this.checked) {
+                selectedTypes.push(this.value);
+              } else {
+                // If the checkbox is unchecked, remove the type from selectedTypes
+                const index = selectedTypes.indexOf(this.value);
+                if (index !== -1) {
+                  selectedTypes.splice(index, 1);
+                }
+              }
+              // Update the chart with the selected types and current sort order
+              updateChart(selectedTypes, sortOrder);
+            });
+          });
+
+          // Initialize the selectedTypes array
+          selectedTypes = Array.from(checkboxes)
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => checkbox.value);
+
+          // Update svg size
+          widthSlider.addEventListener("input", updateSVGSize);
+          heightSlider.addEventListener("input", updateSVGSize);
+
+          // Initialize
+          updateChart(selectedTypes, sortOrder);
+
+          // Update the SVG size
+          function updateSVGSize() {
+            // Get the values of width and height from the sliders
+            svgWidth = +widthSlider.value;
+            svgHeight = +heightSlider.value;
+
+            // Update the width and height attributes of the SVG
+            svg.attr("width", svgWidth).attr("height", svgHeight);
+
+            // Update the width and height variables
+            width = svgWidth - margin.left - margin.right;
+            height = svgHeight - margin.top - margin.bottom;
+
+            // Update the displayed values on the page
+            widthValue.textContent = svgWidth;
+            heightValue.textContent = svgHeight;
+            updateChart(selectedTypes, sortOrder);
+          }
+
+          // update the Theme River image
+          function updateChart(selectedTypes, sortOrder) {
+            // Sorting
+            if (sortOrder === "ascending") {
+              data.sort(function (a, b) {
+                return new Date(a.saledate) - new Date(b.saledate);
+              });
+            } else {
+              data.sort(function (a, b) {
+                return new Date(b.saledate) - new Date(a.saledate);
+              });
+            }
+
+            // Process the data to aggregate values by sale date and type
+            var result = data.reduce(function (acc, cur) {
+              var date = cur.saledate;
+              var type = cur.type + cur.bedrooms;
+              var value = cur.MA;
+
+              var obj = acc.find(function (o) {
+                return o.saledate === date;
+              });
+              if (obj) {
+                obj[type] = value;
+              } else {
+                obj = {
+                  saledate: date,
+                };
+                obj[type] = value;
+                acc.push(obj);
+              }
+              return acc;
+            }, []);
+
+            // Fill missing values with 0
+            result.forEach(function (obj) {
+              [
+                "house2",
+                "house3",
+                "house4",
+                "house5",
+                "unit1",
+                "unit2",
+                "unit3",
+              ].forEach(function (type) {
+                if (!obj.hasOwnProperty(type)) {
+                  obj[type] = 0;
+                }
+              });
+            });
+
+            // Clear SVG
+            svg.selectAll("*").remove();
+
+            // Filter the data based on selected types
+            const filteredData = result.filter(function (d) {
+              return selectedTypes.some((type) => d.hasOwnProperty(type));
+            });
+
+            // color map
+            var color = d3
+              .scaleOrdinal()
+              .domain([
+                "house2",
+                "house3",
+                "house4",
+                "house5",
+                "unit1",
+                "unit2",
+                "unit3",
+              ])
+              .range([
+                "#e15759",
+                "#f28e2c",
+                "#edc949",
+                "#59a14f",
+                "#76b7b2",
+                "#4e79a7",
+                "#af7aa1",
+              ]);
+
+            // Initialize x-axis and scale
+            if (sortOrder === "ascending") {
+              var x = d3
+                .scaleTime()
+                .domain(
+                  d3.extent(filteredData, function (d) {
+                    return new Date(d.saledate);
+                  })
+                )
+                .range([0, width]);
+            } else {
+              var x = d3
+                .scaleTime()
+                .domain(
+                  d3.extent(filteredData, function (d) {
+                    return new Date(d.saledate);
+                  })
+                )
+                .range([width, 0]);
+            }
+
+            // Initialize y-axis and scale
+            var y = d3
+              .scaleLinear()
+              .domain([-2500000, 2500000])
+              .range([height, 0]);
+
+            // Define the stack generator
+            var stack = d3
+              .stack()
+              .keys(selectedTypes)
+              .offset(d3.stackOffsetSilhouette);
+
+            // Generate stacked data
+            var series = stack(filteredData);
+
+            // Define the area generator
+            var area = d3
+              .area()
+              .x(function (d) {
+                return x(new Date(d.data.saledate));
+              })
+              .y0(function (d) {
+                console.log(y(d[0]));
+                return y(d[0]);
+              })
+              .y1(function (d) {
+                console.log(y(d[1]));
+                return y(d[1]);
+              });
+
+            // Create and append path elements for the stacked area chart
+            svg
+              .selectAll(".layer")
+              .data(series)
+              .enter()
+              .append("path")
+              .attr("class", "layer")
+              .attr("d", area)
+              .style("fill", function (d, i) {
+                return color(d.key);
+              })
+              .on("mouseover", mouseover)
+
+              .on("mouseleave", mouseleave);
+
+            // Create and append the x-axis
+            const xAxis = svg
+              .append("g")
+              .attr("transform", "translate(0," + height + ")")
+              .call(
+                d3
+                  .axisBottom(x)
+                  .tickSize(-height)
+                  .tickFormat(d3.timeFormat("%Y/%m/%d"))
+                  .tickValues(
+                    filteredData.map(function (d) {
+                      return new Date(d.saledate);
+                    })
+                  )
+              );
+
+            const yAxis = svg
+              .append("g")
+              .call(
+                d3.axisLeft(y)
+                //.tickSize(-width)
+              )
+              .append("text")
+              //.attr("fill", "black")
+              .attr("class", "axis-label")
+              .attr("transform", `rotate(-90)`)
+              .attr("text-anchor", "middle")
+              .attr("x", -height / 2)
+              .attr("y", -80)
+              .text("Moving Average of Median Price");
+            // .on("mouseover", mousemove)
+            // .on("mouseleave", mouseleave_x);
+
+            xAxis.select(".domain").remove();
+            xAxis
+              .selectAll("text")
+              .style("text-anchor", "end")
+              .attr("transform", "rotate(-45)");
+
+            xAxis
+              .append("text")
+              //.attr("fill", "black")
+              .attr("class", "axis-label")
+              .attr("text-anchor", "middle")
+              .attr("x", width / 2)
+              .attr("y", 88)
+              .text("Quarter of the Year");
+
+            // Add event listeners for x-axis lines
+            const xAxisLines = xAxis
+              .selectAll(".tick line")
+              .on("mouseover", function (event, d) {
+                mousemove(event, d);
+              })
+              .on("mouseleave", mouseleave_x);
+
+            // Create a legend for different types
+            const legend = svg
+              .selectAll(".legend")
+              .data([
+                "house 2",
+                "house 3",
+                "house 4",
+                "house 5",
+                "unit 1",
+                "unit 2",
+                "unit 3",
+              ])
+              .enter()
+              .append("g")
+              .attr("class", "legend")
+              .attr(
+                "transform",
+                (d, i) => "translate(" + (svgWidth - 200) + "," + 20 * i + ")"
+              );
+
+            legend
+              .append("rect")
+              .attr("x", 0)
+              .attr("width", 18)
+              .attr("height", 18)
+              .attr("fill", (d, i) => color(i));
+
+            legend
+              .append("text")
+              .attr("x", 25)
+              .attr("y", 9)
+              .attr("dy", ".35em")
+              .style("text-anchor", "start")
+              .text((d) => d);
+            // Create a tooltip for displaying data on hover
+            const tooltip = d3
+              .select("body")
+              .append("div")
+              .attr("class", "tooltip");
+
+            /*var tooltip = svg
+              .append("text")
+              .style("opacity", 0)
+              .style("font-size", 12)
+              .style("font-weight", "bold");*/
+
+            //////////// Functions ////////////
+            // Function to handle mouseover event on chart area
+            function mouseover() {
+              tooltip
+                .style("opacity", 0.7)
+                .style("left", event.pageX + 10 + "px") // Position the tooltip near the mouse
+                .style("top", event.pageY - 10 + "px");
+              d3.selectAll(".layer").style("opacity", 0.3);
+              d3.select(this)
+                .style("stroke", "grey")
+                .style("stroke-width", "2")
+                .style("opacity", 1);
+            }
+
+            // Function to handle mouseleave event on chart area
+            function mouseleave() {
+              tooltip.style("opacity", 0);
+              d3.selectAll(".layer")
+                .style("opacity", 1)
+                .style("stroke", "none");
+            }
+
+            // Function to handle mouseover event on x-axis
+            function mousemove(event, targetDate) {
+              var inputDate = new Date(targetDate);
+
+              // Get year, month, and day
+              var year = inputDate.getFullYear();
+              var month = (inputDate.getMonth() + 1)
+                .toString()
+                .padStart(2, "0");
+              var day = inputDate.getDate().toString().padStart(2, "0");
+
+              // Format the date as "YYYY/MM/DD"
+              var formattedDate = year + "/" + month + "/" + day;
+
+              var dataPoint = filteredData.filter(function (d) {
+                return d.saledate === formattedDate;
+              });
+              dataPoint = dataPoint[0];
+
+              tooltip.html("");
+              // Add the date to the tooltip
+              tooltip
+                .append("div")
+                //.attr("x", event.offsetX + 10)
+                //.attr("y", -30)
+                .html("Date: " + dataPoint["saledate"]);
+              // Add values for selected types
+              selectedTypes.forEach(function (type) {
+                tooltip
+                  .append("div")
+                  //.attr("x", event.offsetX + 10)
+                  //.attr("dy", 20) // Increase dy to move text to the next line
+                  .text(type + ": " + dataPoint[type]);
+              });
+            }
+            // Function to handle mouseleave event on x-axis
+            function mouseleave_x() {
+              tooltip.style("opacity", 0);
+            }
+          }
+        }
+      );
+    </script>
+  </body>
+</html>

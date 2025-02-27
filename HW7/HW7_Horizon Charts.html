@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Horizon Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font: 1em sans-serif;
+      }
+
+      .selectors {
+        top: 0;
+        position: fixed;
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        background-color: rgba(107, 166, 159, 0.861);
+      }
+
+      #tooltip {
+        position: fixed;
+        background-color: rgba(241, 247, 230, 0.897);
+        border: 1px solid #444444;
+        margin-left: 50px;
+        padding: 10px;
+        font-size: 20px;
+        font-weight: 600;
+        display: none;
+      }
+      .switch-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .switch {
+        position: relative;
+        width: 60px; /* 增加寬度以容納 "ON" 和 "OFF" 的文字 */
+        height: 25px;
+        -webkit-appearance: none;
+        background-color: #ccc;
+        outline: none;
+        border-radius: 25px;
+        transition: background-color 0.2s;
+        cursor: pointer;
+      }
+
+      .switch:before {
+        content: "OFF";
+        position: absolute;
+        color: white;
+        left: 30px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        transition: color 0.2s;
+      }
+
+      .switch:checked:before {
+        content: "ON"; /* 改變為 "ON" */
+        left: 10px; /* 調整位置，讓 "ON" 正確顯示 */
+      }
+
+      .switch:checked {
+        background-color: #304c80;
+      }
+
+      .switch:after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: white;
+        top: 2.5px;
+        left: 2.5px;
+        transition: transform 0.2s;
+      }
+
+      .switch:checked:after {
+        transform: translateX(35px); /* 滑動圓點，與文字同步 */
+      }
+
+      .switch-container label {
+        margin-left: 10px;
+      }
+
+      /* Style for the dropdown menus */
+      #menus {
+        font-size: 15px;
+        font-family: "Times New Roman", Times, serif;
+      }
+
+      /* Style for the select elements in the menus */
+      #menus select {
+        font-family: "Times New Roman", Times, serif;
+        background: #9b9a9a;
+        color: #fff;
+        margin: 5px;
+        padding: 8px;
+        width: 240px;
+        border: none;
+        font-size: 15px;
+      }
+
+      /* Style for the options in the select elements */
+      #menus select option {
+        text-align: center;
+        font-size: 15px;
+      }
+
+      #bandSelector {
+        font-family: "Times New Roman", Times, serif;
+        font-size: 15px;
+      }
+
+      /* Loading animation styles */
+      #loading {
+        position: fixed;
+        top: 70%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 24px;
+        color: #304c80;
+        display: none;
+        text-align: center;
+      }
+
+      .spinner {
+        margin: 0 auto;
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(48, 76, 128, 0.2);
+        border-top-color: #304c80;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .texting{
+        background-color: #f1f1f1;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading animation -->
+    
+    <div class="selectors">
+        
+      <div>
+        <h3>Pollutants:</h3>
+        <div class="switch-container">
+          <input type="checkbox" class="switch" id="SO2" value="SO2" checked />
+          <label for="SO2">SO2</label>
+        </div>
+        <div class="switch-container">
+          <input type="checkbox" class="switch" id="NO2" value="NO2" checked />
+          <label for="NO2">NO2</label>
+        </div>
+        <div class="switch-container">
+          <input type="checkbox" class="switch" id="O3" value="O3" checked />
+          <label for="O3">O3</label>
+        </div>
+        <div class="switch-container">
+          <input type="checkbox" class="switch" id="CO" value="CO" checked />
+          <label for="CO">CO</label>
+        </div>
+        <div class="switch-container">
+          <input
+            type="checkbox"
+            class="switch"
+            id="PM10"
+            value="PM10"
+            checked
+          />
+          <label for="PM10">PM10</label>
+        </div>
+        <div class="switch-container">
+          <input
+            type="checkbox"
+            class="switch"
+            id="PM2.5"
+            value="PM2.5"
+            checked
+          />
+          <label for="PM2.5">PM2.5</label>
+        </div>
+        <br />
+      </div>
+      <div id="menus">
+        <h3>Time Order:</h3>
+        <select id="sort-order-selector">
+          <option value="ascending" selected>Ascending</option>
+          <option value="descending">Descending</option>
+        </select>
+      </div>
+      <div id="menus">
+        <h3>Target Year:</h3>
+        <select id="year-selector">
+          <option value="2017">2017</option>
+          <option value="2018">2018</option>
+          <option value="2019" selected>2019</option>
+        </select>
+      </div>
+      <div id="bandSelector">
+        <h3>Number of bands:</h3>
+        <input
+          id="bands"
+          name="bands"
+          type="range"
+          min="1"
+          max="5"
+          value="5"
+          step="1"
+        />
+        <span id="bands-value"></span>
+        <br/>
+        <div class="texting">
+        <p style="font-size: 20px;">1. You can choose / reorder the pollutants you want to display in the chart.</p>
+        <p style="font-size: 20px;">2. Select the order to display data over time.</p>
+        <p style="font-size: 20px;">3. Choose the year you want to analyze.</p>
+        <p style="font-size: 20px;">4. Adjust the number of bands to control data detail level.</p>
+        <p style="font-size: 20px;">5. Hover over each chart to view daily pollutant details.</p>
+        </div>
+      </div>
+    </div>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading data, please wait...... 👽</p>
+      </div>
+    <div style="margin-top: 400px"></div>
+    <div id="tooltip"></div>
+    <script>
+      document.getElementById("loading").style.display = "block";
+      d3.csv("http://vis.lab.djosix.com:2024/data/air-pollution.csv").then(
+        function (data) {
+          document.getElementById("loading").style.display = "none";
+
+          // Define
+          var svgWidth = 4000,
+            svgHeight = 4500;
+          const margin = { top: 50, right: 150, bottom: 50, left: 150 };
+          const padding = 60;
+          const band_padding = 1;
+          var width = svgWidth - margin.left - margin.right;
+          var height = svgHeight - margin.top - margin.bottom;
+          var bands = 5;
+
+          const parseDate = d3.timeParse("%Y-%m-%d");
+          const formatDate = d3.timeFormat("%Y-%m-%d");
+
+          const bandsSlider = document.getElementById("bands");
+          const bandsValue = document.getElementById("bands-value");
+          bandsValue.textContent = bands;
+
+          // Initialize the selector value
+          var sortOrder = "ascending";
+          var targetYear = "2019";
+
+          // Initialize the svg
+          const svg = d3
+            .select("body")
+            .append("svg")
+            .attr("width", svgWidth)
+            .attr("height", svgHeight)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+          // Initialize data
+          const pollutants = ["SO2", "NO2", "O3", "CO", "PM10", "PM2.5"];
+          const addressesSet = new Set();
+          var dataByPollutant = {};
+
+          pollutants.forEach((pollutant) => {
+            // Determine the number of decimal places for the current pollutant
+            const decimalPlaces = fixed_number(pollutant);
+            dataByPollutant[pollutant] = {};
+
+            data.forEach((d) => {
+              // Split the address into parts and extract the area name
+              const addressParts = d["Address"].split(", ");
+              const areaName = addressParts[addressParts.length - 3];
+
+              // Split the measurement date and extract the year, month, and day
+              const dateParts = d["Measurement date"].split(" ");
+              const yearMonthDay = dateParts[0];
+              const year = dateParts[0].split("-")[0];
+
+              addressesSet.add(areaName);
+
+              if (!dataByPollutant[pollutant][year]) {
+                dataByPollutant[pollutant][year] = {};
+              }
+
+              if (!dataByPollutant[pollutant][year][areaName]) {
+                dataByPollutant[pollutant][year][areaName] = {};
+              }
+
+              if (!dataByPollutant[pollutant][year][areaName][yearMonthDay]) {
+                dataByPollutant[pollutant][year][areaName][yearMonthDay] = [];
+              }
+
+              // Collect all pollutant values for the same date and area
+              dataByPollutant[pollutant][year][areaName][yearMonthDay].push(
+                +d[pollutant]
+              );
+            });
+          });
+
+          // After collecting all data, compute the average for each date
+          pollutants.forEach((pollutant) => {
+            const years = Object.keys(dataByPollutant[pollutant]);
+            years.forEach((year) => {
+              const areas = Object.keys(dataByPollutant[pollutant][year]);
+              areas.forEach((areaName) => {
+                const dates = Object.keys(
+                  dataByPollutant[pollutant][year][areaName]
+                );
+                dataByPollutant[pollutant][year][areaName] = dates.map(
+                  (date) => {
+                    const values =
+                      dataByPollutant[pollutant][year][areaName][date];
+                    const sum = d3.sum(values);
+                    const avg = sum / values.length;
+                    return {
+                      Date: date,
+                      Address: areaName,
+                      Pollutant: avg.toFixed(fixed_number(pollutant)),
+                    };
+                  }
+                );
+              });
+            });
+          });
+
+          const addresses = Array.from(addressesSet);
+          let selectedTypes = pollutants;
+
+          // Init: color map
+          var colors = d3
+            .scaleOrdinal()
+            .domain(pollutants)
+            .range([
+              "#e15759",
+              "#f28e2c",
+              "#59a14f",
+              "#4e79a7",
+              "#6a3d9a",
+              "#a65628",
+            ]);
+
+          // Listen to the change event on the sort-order selector dropdown
+          d3.select("#sort-order-selector").on("change", function () {
+            // Get the selected sort order value
+            sortOrder = this.value;
+            updateChart();
+          });
+
+          // Listen to the change event on the year selector dropdown
+          d3.select("#year-selector").on("change", function () {
+            targetYear = this.value;
+            updateChart();
+          });
+
+          // Select all checkboxes on the page
+          const checkboxes = document.querySelectorAll(
+            'input[type="checkbox"]'
+          );
+
+          // Listen to the change event on checkboxes
+          checkboxes.forEach((checkbox) => {
+            checkbox.addEventListener("change", function () {
+              // check: add the type to selectedTypes
+              if (this.checked) {
+                selectedTypes.push(this.value);
+              } else {
+                // uncheck: remove the type from selectedTypes
+                const index = selectedTypes.indexOf(this.value);
+                if (index !== -1) {
+                  selectedTypes.splice(index, 1);
+                }
+              }
+              // Update the chart
+              updateChart();
+            });
+          });
+
+          // Initialize the selectedTypes array
+          selectedTypes = Array.from(checkboxes)
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => checkbox.value);
+
+          // Update bands
+          bandsSlider.addEventListener("input", function () {
+            bands = +bandsSlider.value;
+            bandsValue.textContent = bandsSlider.value;
+            updateChart();
+          });
+          updateChart();
+
+          // Color scaler
+          function get_color(pollutant, index) {
+            const current_color = colors(pollutant);
+            const interpolateRange = [
+              d3.color(current_color).brighter(2),
+              d3.color(current_color).darker(2),
+            ];
+            const colorInterpolator = d3
+              .scaleLinear()
+              .domain([0, bands - 1])
+              .range(interpolateRange);
+
+            return colorInterpolator(index);
+          }
+
+          // Main function
+          // Update the Horizon Chart
+          function updateChart() {
+            // Remove all elements from the SVG
+            svg.selectAll("*").remove();
+
+            // Calculate the width and height of each chart
+            const imgWidth = (width - 50) / selectedTypes.length - 2 * padding; // width of each chart
+            const imgHeight =
+              ((height - 10) / addresses.length - padding); // height of each chart
+
+            // Loop through addresses
+            addresses.forEach((address, rowIndex) => {
+              // Create a group for the current address
+              const addressGroup = svg
+                .append("g")
+                .attr(
+                  "transform",
+                  `translate(50, ${rowIndex * (imgHeight + padding) + 10})`
+                )
+                .attr("style", "font: 12px sans-serif;");
+
+              // Loop through selected pollutants
+              selectedTypes.forEach((pollutant, colIndex) => {
+                // Get target data
+                const addressData =
+                  dataByPollutant[pollutant][targetYear][address];
+
+               
+                if (!addressData) return;
+
+            
+                addressData.sort(
+                  (a, b) => parseDate(a.Date) - parseDate(b.Date)
+                );
+
+                // Create a group for the current chart
+                const g = addressGroup
+                  .append("g")
+                  .datum(addressData)
+                  .attr(
+                    "transform",
+                    `translate(${colIndex * (imgWidth + padding)}, 0)`
+                  )
+                  .attr("width", imgWidth)
+                  .attr("height", imgHeight);
+
+                
+                const chartMargin = { top: 0, right: 0, bottom: 0, left: 30 }; 
+                const chartWidth =
+                  imgWidth - chartMargin.left - chartMargin.right;
+                const chartHeight =
+                  imgHeight - chartMargin.top - chartMargin.bottom;
+
+                const chartGroup = g
+                  .append("g")
+                  .attr(
+                    "transform",
+                    `translate(${chartMargin.left}, ${chartMargin.top})`
+                  );
+
+                // Sorting
+                var xScale;
+                if (sortOrder === "ascending") {
+                  xScale = d3
+                    .scaleTime()
+                    .domain(d3.extent(addressData, (d) => parseDate(d.Date)))
+                    .range([0, chartWidth]);
+                } else {
+                  xScale = d3
+                    .scaleTime()
+                    .domain(d3.extent(addressData, (d) => parseDate(d.Date)))
+                    .range([chartWidth, 0]);
+                }
+
+                
+                const yMax = d3.max(addressData, (d) => +d.Pollutant);
+                const yMin = 0; 
+
+              
+                const yScale = d3
+                  .scaleLinear()
+                  .domain([yMin, yMax])
+                  .range([
+                    chartHeight,
+                    chartHeight - bands * (chartHeight - band_padding),
+                  ])
+                  .nice();
+
+          
+                const yScaleAxis = d3
+                  .scaleLinear()
+                  .domain([yMin, yMax / bands])
+                  .range([chartHeight, 0])
+                  .nice();
+
+                // Add Y-Axis
+                const yAxis = d3
+                  .axisLeft(yScaleAxis)
+                  .ticks(5)
+                  .tickFormat(d3.format(".3f")); 
+
+                // Create the Y-Axis
+                chartGroup
+                  .append("g")
+                  .attr("class", "y-axis")
+                  .call(yAxis)
+                  .selectAll("text")
+                  .style("font-size", "8px");
+
+                // Add X-Axis
+                const xAxis = d3
+                  .axisBottom(xScale)
+                  .tickSize(3)
+                  .ticks(12 * (7 - selectedTypes.length))
+                  .tickFormat(d3.timeFormat("%m/%d"));
+
+                // Create the X-Axis
+                chartGroup
+                  .append("g")
+                  .attr("class", "x-axis")
+                  .attr("transform", `translate(0, ${chartHeight})`)
+                  .call(xAxis)
+                  .selectAll("text")
+                  .style("text-anchor", "end")
+                  .attr("transform", "rotate(-45)");
+
+                // Create a unique ID for the clip path
+                const uid = `O-${Math.random().toString(16).slice(2)}`;
+
+                // Add a rectangular clipPath and the reference area.
+                const area = d3
+                  .area()
+                  .defined((d) => !isNaN(d.Pollutant))
+                  .x((d) => xScale(parseDate(d.Date)))
+                  .y0(chartHeight)
+                  .y1((d) => yScale(d.Pollutant));
+
+                const defs = chartGroup.append("defs");
+
+                // Create a clip path for the area
+                defs
+                  .append("clipPath")
+                  .attr("id", `${uid}-clip`)
+                  .append("rect")
+                  .attr("y", band_padding)
+                  .attr("width", chartWidth)
+                  .attr("height", chartHeight - band_padding);
+
+                // Create a path for the area
+                defs
+                  .append("path")
+                  .attr("id", `${uid}-path`)
+                  .datum(addressData)
+                  .attr("d", area);
+
+                
+                const thresholds = d3
+                  .range(bands + 1)
+                  .map((i) => yMin + (i * (yMax - yMin)) / bands);
+
+                
+                const colorBarWidth = 10;
+                const colorBarHeight = chartHeight;
+                const colorBarX = chartWidth + 5;
+                const colorBarY = 0;
+
+              
+                chartGroup
+                  .selectAll(".color-band")
+                  .data(d3.range(bands))
+                  .enter()
+                  .append("rect")
+                  .attr("class", "color-band")
+                  .attr("x", colorBarX)
+                  .attr("y", (d, i) => colorBarY + i * (colorBarHeight / bands))
+                  .attr("width", colorBarWidth)
+                  .attr("height", colorBarHeight / bands)
+                  .attr("fill", (i) => get_color(pollutant, bands - i - 1)); 
+
+                
+                const colorBarScale = d3
+                  .scaleLinear()
+                  .domain([yMin, yMax])
+                  .range([colorBarHeight, 0]);
+
+               
+                const colorAxis = chartGroup
+                  .append("g")
+                  .attr("class", "color-axis")
+                  .attr(
+                    "transform",
+                    `translate(${colorBarX + colorBarWidth}, ${colorBarY})`
+                  );
+
+                colorAxis
+                  .selectAll(".tick")
+                  .data(thresholds)
+                  .enter()
+                  .append("g")
+                  .attr("class", "tick")
+                  .attr("transform", (d) => `translate(0, ${colorBarScale(d)})`)
+                  .call((g) => {
+                    g.append("line")
+                      .attr("x1", 0)
+                      .attr("x2", 5)
+                      .attr("stroke", "black");
+                    g.append("text")
+                      .attr("x", 7)
+                      .attr("dy", "0.35em")
+                      .style("font-size", "8px")
+                      .text((d) => d3.format(".3f")(d)); 
+                  });
+
+
+                // Create areas for each band using clip path
+                chartGroup
+                  .append("g")
+                  .attr("clip-path", `url(#${uid}-clip)`)
+                  .selectAll("use")
+                  .data(d3.range(bands))
+                  .enter()
+                  .append("use")
+                  .attr("xlink:href", `#${uid}-path`)
+                  .attr("fill", (i) => get_color(pollutant, i))
+                  .attr("transform", (i) => `translate(0,${i * chartHeight})`)
+                  .style("opacity", 0) 
+                  .transition()
+                  .duration(1700) // 1.7 秒
+                  .style("opacity", 1);
+
+                // Create a vertical line for mouseover
+                const verticalLine = chartGroup
+                  .append("line")
+                  .attr("class", "vertical-line")
+                  .attr("x1", 0)
+                  .attr("x2", 0)
+                  .attr("y1", 0)
+                  .attr("y2", chartHeight)
+                  .style("stroke", "black")
+                  .style("stroke-width", 1.5)
+                  .style("display", "none");
+
+                // Create a rect for binding mousemove function
+                chartGroup
+                  .append("rect")
+                  .attr("class", "horizon-overlay")
+                  .attr("x", 0)
+                  .attr("y", 0)
+                  .attr("width", chartWidth)
+                  .attr("height", chartHeight)
+                  .attr("fill", "transparent")
+
+                  .datum(addressData);
+
+                // Use bisector to find the closest date
+                const bisectDate = d3.bisector((d) => parseDate(d.Date)).left;
+
+                chartGroup
+                  .select(".horizon-overlay")
+                  .on("mousemove", function (event) {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const xPos = event.clientX - rect.left;
+                    const xValue = xScale.invert(xPos);
+
+                    verticalLine
+                      .attr("x1", xScale(xValue))
+                      .attr("x2", xScale(xValue))
+                      .style("display", "block");
+
+                    const data = d3.select(this).datum();
+
+                    const index = bisectDate(data, xValue);
+                    const d0 = data[index - 1];
+                    const d1 = data[index];
+
+                    const target =
+                      d0 && d1
+                        ? xValue - parseDate(d0.Date) >
+                          parseDate(d1.Date) - xValue
+                          ? d1
+                          : d0
+                        : d0 || d1;
+
+                    mouseover(event, target, pollutant);
+                  })
+                  .on("mouseleave", function () {
+                    verticalLine.style("display", "none");
+                    mouseleave();
+                  });
+
+                if (colIndex == 0) {
+                  // Add the address labels
+                  addressGroup
+                    .append("text")
+                    .attr("x", -120)
+                    .attr("y", imgHeight / 2)
+                    .attr("dy", "0.35em")
+                    .style("font-weight", "bold")
+                    .style("font-size", "14px")
+                    .text(address);
+                }
+
+                if (rowIndex == 0) {
+                  // Add the pollutant labels
+                  addressGroup
+                    .append("text")
+                    .attr("x", colIndex * (imgWidth + padding) + 0.5 * imgWidth)
+                    .attr("y", -margin.top)
+                    .style("font-weight", "bold")
+                    .style("font-size", "14px")
+                    .text(pollutant);
+                }
+              });
+            });
+
+            // Function to handle mouseover event on x-axis
+            function mouseover(event, target, pollutant) {
+              if (target) {
+                d3.select("#tooltip")
+                  .style("display", "block")
+                  .html(
+                    `Date: ${target.Date}<br>Address: ${target.Address}<br>${pollutant}: ${target.Pollutant}`
+                  )
+                  .style("left", `35%`)
+                  .style("top", `210px`);
+              }
+            }
+
+            // Function to handle mouseleave event
+            function mouseleave() {
+              d3.select("#tooltip").style("display", "none").html("");
+            }
+          }
+        }
+      );
+
+      function fixed_number(pollutant) {
+        switch (pollutant) {
+          case "SO2":
+          case "NO2":
+          case "O3":
+            return 3;
+          case "CO":
+          case "PM10":
+          case "PM2.5":
+            return 1;
+          default:
+            return 2;
+        }
+      }
+    </script>
+  </body>
+</html>

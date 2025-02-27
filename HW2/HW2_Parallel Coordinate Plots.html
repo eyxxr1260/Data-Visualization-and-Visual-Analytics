@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Iris Dataset Parallel Coordinate Plot</title>
+    <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 0;
+        overflow: hidden;
+      }
+      /* 標題樣式 */
+      .title {
+        font-size: 36px;
+        font-weight: bold;
+        text-anchor: middle;
+      }
+      /* 說明樣式 */
+      .details {
+        font-size: 24px;
+        fill: red;
+        text-anchor: middle;
+      }
+      .axis {
+        font: 12px sans-serif;
+        font-weight: bold;
+        opacity: 0.7;
+        background-color: green;
+      }
+      .axis path,
+      .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+      }
+      .background {
+        fill: none;
+        stroke: #ddd;
+        shape-rendering: crispEdges;
+      }
+      .foreground {
+        fill: none;
+        stroke-opacity: 0.7;
+      }
+      .foreground path {
+        stroke-width: 1.5px;
+      }
+      .brush .extent {
+        stroke: #fff;
+        fill-opacity: 0.3;
+        shape-rendering: crispEdges;
+      }
+      .axis-label {
+        font-size: 16px;
+        fill: #000;
+      }
+      .legend {
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .legend rect {
+        stroke-width: 2;
+        stroke: black;
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="960" height="600"></svg>
+
+    <script>
+      const svg = d3.select('svg'),
+        width = +svg.attr('width'),
+        height = +svg.attr('height');
+
+      const margin = {
+          top: 180,
+          right: 150,
+          bottom: 20,
+          left: -20,
+        },
+        innerWidth = width - margin.left - margin.right,
+        innerHeight = height - margin.top - margin.bottom;
+
+      const g = svg
+        .append('g')
+        .attr(
+          'transform',
+          `translate(${margin.left},${margin.top})`,
+        );
+      // 添加標題
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', (-2 * margin.top) / 3)
+        .attr('class', 'title')
+        .text('Iris Dataset Parallel Coordinate Plot');
+
+      // 添加說明
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', -margin.top / 3)
+        .attr('class', 'details')
+        .text('Please drag the y-axis labels to reorder them.');
+
+      // colora
+      const colors = ['#5A5AAD', '#808040', '#408080'];
+      const color = d3
+        .scaleOrdinal()
+        .domain([
+          'Iris-setosa',
+          'Iris-versicolor',
+          'Iris-virginica',
+        ])
+        .range(colors);
+
+      // load data
+      d3.csv('http://vis.lab.djosix.com:2024/data/iris.csv')
+        .then((data) => {
+          // 過濾掉空行
+          data = data.filter(
+            (d) =>
+              d['sepal length'] &&
+              d['sepal width'] &&
+              d['petal length'] &&
+              d['petal width'] &&
+              d['class'],
+          );
+          data.forEach((d) => {
+            d.sepalLength = +d['sepal length'];
+            d.sepalWidth = +d['sepal width'];
+            d.petalLength = +d['petal length'];
+            d.petalWidth = +d['petal width'];
+          });
+
+          const dimensions = [
+            'sepalLength',
+            'sepalWidth',
+            'petalLength',
+            'petalWidth',
+          ];
+
+          // y 比例尺
+          const y = {};
+          dimensions.forEach((dimension) => {
+            y[dimension] = d3
+              .scaleLinear()
+              .domain(d3.extent(data, (d) => d[dimension]))
+              .range([innerHeight, 0])
+              .nice();
+          });
+
+          // x 座標比例尺
+          let x = d3
+            .scalePoint()
+            .range([0, innerWidth])
+            .padding(1)
+            .domain(dimensions);
+
+          function path(d) {
+            return d3.line()(
+              dimensions.map((p) => [x(p), y[p](d[p])]),
+            );
+          }
+
+          // 添加background線
+          const background = g
+            .append('g')
+            .attr('class', 'background')
+            .selectAll('path')
+            .data(data)
+            .enter()
+            .append('path')
+            .attr('d', path);
+
+          // 添加foreground線
+          const foreground = g
+            .append('g')
+            .attr('class', 'foreground')
+            .selectAll('path')
+            .data(data)
+            .enter()
+            .append('path')
+            .attr('d', path)
+            .style('stroke', (d) => color(d.class));
+
+          // 添加軸
+          const gDimensions = g
+            .selectAll('.dimension')
+            .data(dimensions)
+            .enter()
+            .append('g')
+            .attr('class', 'dimension')
+            .attr('transform', (d) => `translate(${x(d)})`)
+            .call(
+              d3
+                .drag()
+                .on('start', function (event, d) {
+                  dragging[d] = x(d);
+                  background.attr('visibility', 'hidden');
+                })
+                .on('drag', function (event, d) {
+                  dragging[d] = Math.min(
+                    innerWidth,
+                    Math.max(0, event.x),
+                  );
+                  dimensions.sort(
+                    (a, b) => position(a) - position(b),
+                  );
+                  x.domain(dimensions);
+                  gDimensions.attr(
+                    'transform',
+                    (d) => `translate(${x(d)})`,
+                  );
+                  foreground.attr('d', path);
+                })
+                .on('end', function (event, d) {
+                  delete dragging[d];
+                  transition(d3.select(this)).attr(
+                    'transform',
+                    `translate(${x(d)})`,
+                  );
+                  transition(foreground).attr('d', path);
+                  background
+                    .attr('d', path)
+                    .transition()
+                    .delay(500)
+                    .duration(0)
+                    .attr('visibility', null);
+                }),
+            );
+
+          // 添加軸和標籤
+          gDimensions
+            .append('g')
+            .attr('class', 'axis')
+            .each(function (d) {
+              d3.select(this).call(d3.axisLeft(y[d]));
+            })
+            .append('text')
+            .style('text-anchor', 'middle')
+            .attr('class', 'axis-label')
+            .attr('y', -9)
+            .text((d) => {
+              switch (d) {
+                case 'sepalLength':
+                  return 'Sepal Length';
+                case 'sepalWidth':
+                  return 'Sepal Width';
+                case 'petalLength':
+                  return 'Petal Length';
+                case 'petalWidth':
+                  return 'Petal Width';
+                default:
+                  return d;
+              }
+            });
+
+          // 添加圖表
+          const legend = svg
+            .append('g')
+            .attr('class', 'legend')
+            .attr(
+              'transform',
+              `translate(${width - margin.right + 20},${margin.top})`,
+            );
+
+          color.domain().forEach((key, i) => {
+            const legendRow = legend
+              .append('g')
+              .attr('class', 'legend')
+              .attr('transform', `translate(0, ${i * 25})`)
+              .on('mouseover', () => highlight(key))
+              .on('mouseout', resetHighlight);
+
+            legendRow
+              .append('rect')
+              .attr('width', 20)
+              .attr('height', 20)
+              .attr('fill', color(key));
+
+            legendRow
+              .append('text')
+              .attr('x', 25)
+              .attr('y', 15)
+              .text(key);
+          });
+
+          function highlight(selectedClass) {
+            foreground.style('stroke', (d) =>
+              d.class === selectedClass
+                ? color(d.class)
+                : '#ccc',
+            );
+
+            // 將選中類別的線移至前景
+            foreground
+              .filter((d) => d.class === selectedClass)
+              .raise();
+          }
+
+          function resetHighlight() {
+            foreground.style('stroke', (d) =>
+              color(d.class),
+            );
+          }
+
+          // 拖曳功能
+          const dragging = {};
+
+          function position(d) {
+            return dragging[d] == null ? x(d) : dragging[d];
+          }
+
+          function transition(g) {
+            return g.transition().duration(500);
+          }
+        })
+        .catch((error) => {
+          console.error(
+            'Error loading the data file:',
+            error,
+          );
+        });
+    </script>
+  </body>
+</html>

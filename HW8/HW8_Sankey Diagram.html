@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sankey Diagram</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <script src="https://d3js.org/d3-drag.v2.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font: 1em sans-serif;
+      }
+
+      .selectors {
+        top: 0;
+        position: fixed;
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        background-color: rgba(196, 180, 165, 0.774);
+      }
+
+      #tooltip {
+        position: fixed;
+        background-color: #83a58b;
+        border: 1px solid rgb(63, 63, 63);
+        margin-left: 50px;
+        padding: 10px;
+        font-size: 12px;
+        font-weight: 600;
+        /* display: none; */
+        opacity: 0;
+      }
+
+      /* 添加以下 CSS 以確保 Canvas 位於 SVG 之上 */
+      /*canvas {
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+}*/
+
+      .switch-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .switch {
+        position: relative;
+        width: 60px; /* 增加寬度以容納 "ON" 和 "OFF" 的文字 */
+        height: 25px;
+        -webkit-appearance: none;
+        background-color: #ccc;
+        outline: none;
+        border-radius: 25px;
+        transition: background-color 0.2s;
+        cursor: pointer;
+      }
+
+      .switch:before {
+        content: "OFF";
+        position: absolute;
+        color: white;
+        left: 30px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        transition: color 0.2s;
+      }
+
+      .switch:checked:before {
+        content: "ON"; /* 改變為 "ON" */
+        left: 10px; /* 調整位置，讓 "ON" 正確顯示 */
+      }
+
+      .switch:checked {
+        background-color: #304c80;
+      }
+
+      .switch:after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: white;
+        top: 2.5px;
+        left: 2.5px;
+        transition: transform 0.2s;
+      }
+
+      .switch:checked:after {
+        transform: translateX(35px); /* 滑動圓點，與文字同步 */
+      }
+
+      .switch-container label {
+        margin-left: 10px;
+      }
+
+      /* Style for the dropdown menus */
+      .menus {
+        font-size: 15px;
+        font-family: "Times New Roman", Times, serif;
+      }
+
+      /* Style for the select elements in the menus */
+      .menus select {
+        font-family: "Times New Roman", Times, serif;
+        background: #9b9a9a;
+        color: #fff;
+        margin: 5px;
+        padding: 8px;
+        width: 240px;
+        border: none;
+        font-size: 15px;
+      }
+
+      /* Style for the options in the select elements */
+      .menus select option {
+        text-align: center;
+        font-size: 15px;
+      }
+
+      .block {
+        display: flex;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="selectors">
+      <div>
+        <h3>Feature (Choose at least two options):</h3>
+        <div class="block">
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="buying"
+              value="buying"
+              checked
+            />
+            <label for="buying">buying</label>
+          </div>
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="maint"
+              value="maint"
+              checked
+            />
+            <label for="maint">maint</label>
+          </div>
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="doors"
+              value="doors"
+              checked
+            />
+            <label for="doors">doors</label>
+          </div>
+
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="persons"
+              value="persons"
+              checked
+            />
+            <label for="persons">persons</label>
+          </div>
+        </div>
+        <div class="block">
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="lug_boot"
+              value="lug_boot"
+              checked
+            />
+            <label for="lug_boot">lug_boot</label>
+          </div>
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="safety"
+              value="safety"
+              checked
+            />
+            <label for="safety">safety</label>
+          </div>
+          <div class="switch-container">
+            <input
+              type="checkbox"
+              class="switch"
+              id="classLabel"
+              value="classLabel"
+              checked
+            />
+            <label for="classLabel">classLabel</label>
+          </div>
+        </div>
+        <br />
+      </div>
+      <div class="texting">
+        <p style="font-size: 20px">
+          1. You can choose / reorder the features you want to display in the
+          Sankey Diagram.
+        </p>
+        <p style="font-size: 20px">
+          2. Choose how the links in the Sankey Diagram should be colored.
+        </p>
+        <p style="font-size: 20px">
+          3. Hover over nodes and links on the chart to view additional details.
+        </p>
+      </div>
+      <div class="menus">
+        <h3>Coloring by:</h3>
+        <select id="color-selector">
+          <option value="ClassLabel" selected>ClassLabel</option>
+          <option value="Frequency">Frequency</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top: 120px"></div>
+    <div id="tooltip"></div>
+    <script>
+      const initLabels = [
+        "buying",
+        "maint",
+        "doors",
+        "persons",
+        "lug_boot",
+        "safety",
+        "classLabel",
+      ];
+      const labelToNumber = (label) => initLabels.indexOf(label);
+      const labels = {
+        buying: ["vhigh", "high", "med", "low"],
+        maint: ["vhigh", "high", "med", "low"],
+        doors: ["2", "3", "4", "5more"],
+        persons: ["2", "4", "more"],
+        lug_boot: ["small", "med", "big"],
+        safety: ["low", "med", "high"],
+        classLabel: ["unacc", "acc", "good", "vgood"],
+      };
+
+      const classLabelColors = {
+        unacc: "#66c2a5",
+        acc: "#bebada",
+        good: "#fb8072",
+        vgood: "#1f77b4",
+      };
+
+      var coloringByClass = true;
+
+      var selectedLabels = initLabels;
+      d3.text("http://vis.lab.djosix.com:2024/data/car.data").then(function (
+        text
+      ) {
+        const checkboxes = document.querySelectorAll(
+          '.selectors input[type="checkbox"]'
+        );
+        const colorSelector = document.getElementById("color-selector");
+
+        checkboxes.forEach((checkbox) => {
+          checkbox.addEventListener("change", function () {
+            // Clone the current selectedLabels array
+            var oldSelectedLabels = selectedLabels.slice();
+
+            // Update the selectedLabels based on the order of checked checkboxes
+            selectedLabels = Array.from(checkboxes)
+              .filter((checkbox) => checkbox.checked)
+              .map((checkbox) => checkbox.value);
+
+            // Compare old and new selectedLabels arrays
+            const addedLabels = selectedLabels.filter(
+              (label) => !oldSelectedLabels.includes(label)
+            );
+            const removedLabels = oldSelectedLabels.filter(
+              (label) => !selectedLabels.includes(label)
+            );
+
+            // Move added labels to the end of the array
+            selectedLabels = selectedLabels.filter(
+              (label) => !addedLabels.includes(label)
+            );
+            console.log("before push", selectedLabels);
+            selectedLabels.push(...addedLabels);
+            console.log("after push", selectedLabels);
+
+            // Remove labels that were unchecked
+            removedLabels.forEach((label) => {
+              const index = selectedLabels.indexOf(label);
+              if (index !== -1) {
+                selectedLabels.splice(index, 1);
+              }
+            });
+            console.log("init", selectedLabels);
+            // Update the chart
+            updateSankey();
+          });
+        });
+
+        // colorSelector EventListener
+        colorSelector.addEventListener("change", function () {
+          coloringByClass = colorSelector.value === "ClassLabel";
+          updateSankey();
+        });
+
+        // Init the graph
+        updateSankey();
+
+        function updateSankey() {
+          // No Update
+          if (selectedLabels.length < 2) {
+            return;
+          }
+
+          const frequencyCounts = processData(text, selectedLabels);
+          console.log(frequencyCounts.length, frequencyCounts);
+
+          const sankeyData = convertToSankeyData(
+            frequencyCounts,
+            selectedLabels
+          );
+          console.log(sankeyData);
+
+          d3.select("svg").remove();
+
+          // Init SVG size
+          const svg_width = 1500;
+          const svg_height = 1200;
+          const margin = { top: 50, right: 180, bottom: 150, left: 50 };
+          const width = svg_width - margin.left - margin.right;
+          const height = svg_height - margin.top - margin.bottom;
+
+          // Init SVG
+          const svg = d3
+            .select("body")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+          // Init Sankey Diagram
+          const sankey = d3
+            .sankey()
+            .nodeWidth(40)
+            .nodePadding(60)
+            .size([width, height]);
+
+          const { nodes, links } = sankey(sankeyData);
+
+          // colorScale (By frequency)
+          const colorScale = d3
+            .scaleSequential(d3.interpolateCool)
+            .domain([0, d3.max(links, (d) => d.value)]);
+
+          // Draw Links
+          const linkSelection = svg
+            .selectAll(".link")
+            .data(links)
+            .enter()
+            .append("path")
+            .attr("class", "link")
+            .attr("d", d3.sankeyLinkHorizontal())
+            .style("stroke-width", (d) => Math.max(1, d.width))
+            .style("stroke", (d) => {
+              // Coloring By classLabel / frequency
+              if (coloringByClass) {
+                return classLabelColors[d.classLabel];
+              }
+              return colorScale(d.value);
+            })
+            .style("fill", "none")
+            .style("opacity", 0.5)
+            .on("mouseover", function (event, d) {
+              d3.select(this).transition().duration(200).style("opacity", 1); // Adjust the opacity on mouseover
+              showTooltip(d); // Call showTooltip with the data d
+            })
+            .on("mouseout", function () {
+              d3.select(this).transition().duration(200).style("opacity", 0.5); // Reset the opacity on mouseout
+              hideTooltip();
+            });
+
+          // Draw nodes
+          const nodeSelection = svg
+            .selectAll(".node")
+            .data(nodes)
+            .enter()
+            .append("rect")
+            .attr("class", "node")
+            .attr("x", (d) => d.x0)
+            .attr("y", (d) => d.y0)
+            .attr("height", (d) => d.y1 - d.y0)
+            .attr("width", (d) => d.x1 - d.x0)
+            .style("fill", "#bbb")
+            .style("opacity", 1)
+            .on("mouseover", function (event, d) {
+              d3.select(this).transition().duration(200).style("opacity", 0.5);
+              showTooltip(d, false);
+            })
+            .on("mouseout", function () {
+              d3.select(this).transition().duration(200).style("opacity", 1);
+              hideTooltip();
+            })
+            .call(
+              d3
+                .drag() // Apply drag behavior
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended)
+            );
+
+          // Add labels
+          const textSelection = svg
+            .selectAll(".text")
+            .data(nodes.filter((d) => d.value !== 0))
+            .enter()
+            .append("text")
+            .attr("class", "text")
+            .attr("x", (d) => (d.x0 + d.x1) / 2)
+            .attr("y", (d) => (d.y0 + d.y1) / 2)
+            .attr("dy", "0.35em")
+            .text((d) => d.name)
+            .style("font-size", "9px")
+            .style("text-anchor", "middle")
+            .style("fill", "#000")
+            .style("font-weight", "bold");
+
+          // Init legend container
+          const legendContainer = svg
+            .append("g")
+            .attr("class", "legend")
+            .attr("transform", `translate(${svg_width - 180}, 20)`);
+          // Init legend container
+          const legendWidth = 20;
+          const legendHeight = 200;
+          if (coloringByClass) {
+            // 繪製類別標籤的離散圖例
+            const legendData = Object.entries(classLabelColors);
+
+            const legendItems = legendContainer
+              .selectAll(".legend-item")
+              .data(legendData)
+              .enter()
+              .append("g")
+              .attr("class", "legend-item")
+              .attr("transform", (d, i) => `translate(0, ${i * 20})`);
+
+            // Draw legend rect
+            legendItems
+              .append("rect")
+              .attr("width", 15)
+              .attr("height", 15)
+              .style("fill", (d) => d[1]);
+
+            // Add legend text
+            legendItems
+              .append("text")
+              .attr("x", 20)
+              .attr("y", 12)
+              .text((d) => d[0]);
+          } else {
+            // 繪製頻率的連續顏色條圖例
+            // 定義線性漸變
+            const defs = svg.append("defs");
+
+            const linearGradient = defs
+              .append("linearGradient")
+              .attr("id", "legend-gradient")
+              .attr("x1", "0%")
+              .attr("y1", "100%")
+              .attr("x2", "0%")
+              .attr("y2", "0%");
+
+            linearGradient
+              .selectAll("stop")
+              .data(
+                colorScale.ticks(10).map((t, i, n) => ({
+                  offset: `${(100 * i) / n.length}%`,
+                  color: colorScale(t),
+                }))
+              )
+              .enter()
+              .append("stop")
+              .attr("offset", (d) => d.offset)
+              .attr("stop-color", (d) => d.color);
+
+            // 繪製顏色條
+            legendContainer
+              .append("rect")
+              .attr("x", 0)
+              .attr("y", 0)
+              .attr("width", legendWidth)
+              .attr("height", legendHeight)
+              .style("fill", "url(#legend-gradient)")
+              .style("stroke", "black")
+              .style("stroke-width", "1px");
+
+            // 添加刻度和標籤
+            const legendScale = d3
+              .scaleLinear()
+              .domain(colorScale.domain())
+              .range([legendHeight, 0]);
+
+            const legendAxis = d3
+              .axisRight(legendScale)
+              .ticks(5)
+              .tickFormat(d3.format(".0f"));
+
+            legendContainer
+              .append("g")
+              .attr("class", "legend-axis")
+              .attr("transform", `translate(${legendWidth}, 0)`)
+              .call(legendAxis);
+          }
+
+          // show Tooltip
+          function showTooltip(d, isLink = true) {
+            const tooltip = d3.select("#tooltip");
+
+            tooltip.transition().duration(200).style("opacity", 0.9); // Fade in
+            if (isLink) {
+              const [sourceLabel, sourceValue] = d.source.name.split("-");
+    const [targetLabel, targetValue] = d.target.name.split("-");
+    tooltip.html(
+      `Source: ${sourceLabel}`+" - " +`${sourceValue}<br>` +
+      `Target: ${targetLabel}`+" - " +`${targetValue}<br>` +
+      `Class: ${d.classLabel}<br>` +
+      `Value: ${d.value}`);
+              //tooltip.html(`Class: ${d.classLabel}<br>Value: ${d.value}`);
+            } else {
+              //tooltip.html(`Value: ${d.value}`);
+              const [feature, value] = d.name.split("-");
+    tooltip.html(`Feature: ${feature}<br>Value: ${value}<br>Total: ${d.value}`);
+
+            }
+          }
+
+          function hideTooltip() {
+            d3.select("#tooltip")
+              .transition()
+              .duration(500)
+              .style("opacity", 0); // Fade out
+          }
+
+          // Define drag functions
+          function dragstarted(event, d) {
+            d.__x = event.x;
+            d.__y = event.y;
+            d.__x0 = d.x0;
+            d.__y0 = d.y0;
+            d.__x1 = d.x1;
+            d.__y1 = d.y1;
+          }
+
+          function dragged(event, d) {
+            const dx = event.x - d.__x;
+            const dy = event.y - d.__y;
+
+            // Update x0, x1, y0, y1 based on drag distance
+            d.x0 = d.__x0 + dx;
+            d.x1 = d.__x1 + dx;
+            d.y0 = d.__y0 + dy;
+            d.y1 = d.__y1 + dy;
+
+            // Adjust for node width
+            d.x0 = Math.max(0, Math.min(width - sankey.nodeWidth(), d.x0));
+            d.x1 = d.x0 + sankey.nodeWidth() + 5;
+
+            // Check and constrain the position within the boundaries
+            if (d.x1 > width) {
+              d.x0 = width - sankey.nodeWidth();
+              d.x1 = width;
+            }
+
+            if (d.y0 < 0) {
+              d.y0 = 0;
+              d.y1 = d.__y1 - d.__y0;
+            }
+
+            if (d.y1 > height) {
+              d.y0 = height - (d.__y1 - d.__y0);
+              d.y1 = height;
+            }
+
+            // Update the position of the node
+            d3.select(this)
+              .attr("x", (d.x0 = event.x))
+              .attr("y", (d.y0 = event.y));
+
+            // Update the position of the associated text
+            svg
+              .selectAll(".text")
+              .filter((text) => text === d) // Filter based on data binding
+              .attr("x", (d.x0 + d.x1) / 2)
+              .attr("y", (d.y0 + d.y1) / 2);
+
+            sankey.update({ nodes, links });
+            svg.selectAll(".link").attr("d", d3.sankeyLinkHorizontal());
+          }
+
+          function dragended(event, d) {
+            d3.select(this).classed("active", false);
+          }
+        }
+      });
+
+      function processData(text, selectedLabels) {
+        // Init frequencyCounts
+        const frequencyCounts = {};
+
+        const data = d3.csvParseRows(text);
+
+        for (let i = 0; i < data.length; i++) {
+          for (let j = 0; j < selectedLabels.length - 1; j++) {
+            const labelIndex1 = labelToNumber(selectedLabels[j]);
+            const labelIndex2 = labelToNumber(selectedLabels[j + 1]);
+
+            const label1 = data[i][labelIndex1];
+            const label2 = data[i][labelIndex2];
+
+            const combination = `${selectedLabels[j]}-${label1}-${
+              selectedLabels[j + 1]
+            }-${label2}-${data[i][6]}`;
+
+            frequencyCounts[combination] =
+              (frequencyCounts[combination] || 0) + 1;
+          }
+        }
+
+        return frequencyCounts;
+      }
+
+      function convertToSankeyData(frequencyCounts, selectedLabels) {
+        // Init Sankey Diagram nodes & links
+        var selectedLabelsDir = {};
+        for (let i = 0; i <= selectedLabels.length; i++) {
+          selectedLabelsDir[selectedLabels[i]] = labels[selectedLabels[i]];
+        }
+
+        let overallIndex = 0;
+        const nodes = Object.entries(selectedLabelsDir).flatMap(
+          ([label, values], index) => {
+            if (selectedLabels.includes(label)) {
+              return values.map((value) => ({
+                name: `${label}-${value}`,
+                index: overallIndex++,
+              })); // 添加 classLabel
+            } else {
+              return [];
+            }
+          }
+        );
+
+        const links = [];
+
+        // By frequencyCounts
+        // Turn inti Sankey Diagram Format
+        for (const combination in frequencyCounts) {
+          const [
+            sourceLabel,
+            sourceValue,
+            targetLabel,
+            targetValue,
+            classLabel,
+          ] = combination.split("-");
+
+          // Find sourceNode / targetNode
+          const sourceNode = nodes.find(
+            (node) => node.name === `${sourceLabel}-${sourceValue}`
+          );
+          const targetNode = nodes.find(
+            (node) => node.name === `${targetLabel}-${targetValue}`
+          );
+
+          if (sourceNode && targetNode) {
+            const value = frequencyCounts[combination];
+            links.push({
+              source: sourceNode.index,
+              target: targetNode.index,
+              value,
+              classLabel: classLabel,
+            });
+          }
+        }
+
+        return { nodes, links };
+      }
+    </script>
+  </body>
+</html>

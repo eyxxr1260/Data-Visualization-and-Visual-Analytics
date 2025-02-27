@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HW1-Scatter Plot</title>
+    <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 100;
+        overflow: hidden;
+      }
+      #adjust {
+        margin-left: 100px;
+      }
+      .axis-label {
+        font-size: 14px;
+      }
+      .dotcolor {
+        font-size: 12px;
+      }
+      circle {
+        opacity: 0.9;
+        height: 25px;
+        width: 25px;
+      }
+      .dot {
+        height: 25px;
+        width: 25px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .tick text {
+        font-size: 1.5em;
+        fill: #635f5d;
+      }
+      .tick line {
+        stroke: #c0c0bb;
+      }
+      .axis-label {
+        font-size: 20px;
+        fill: #8e8883;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="adjust">
+      <h1>HW1-Scatter Plot</h1>
+      <label for="x-axis">X axis:</label>
+      <select id="x-axis">
+        <option value="sepalLength">Sepal Length</option>
+        <option value="sepalWidth">Sepal Width</option>
+        <option value="petalLength">Petal Length</option>
+        <option value="petalWidth">Petal Width</option>
+      </select>
+      <label for="y-axis">Y axis:</label>
+      <select id="y-axis">
+        <option value="sepalLength">Sepal Length</option>
+        <option value="sepalWidth">Sepal Width</option>
+        <option value="petalLength">Petal Length</option>
+        <option value="petalWidth">Petal Width</option>
+      </select>
+    </div>
+    <br />
+    <svg width="800" height="700"></svg>
+
+    <script>
+      const margin = {
+          top: 20,
+          right: 130,
+          bottom: 140,
+          left: 110,
+        },
+        width = 800 - margin.left - margin.right,
+        height = 450 - margin.top - margin.bottom;
+
+      const svg = d3
+        .select('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr(
+          'transform',
+          `translate(${margin.left},${margin.top})`,
+        );
+      const colors = ['#5A5AAD', '#808040', '#408080'];
+      const color = d3.scaleOrdinal(colors);
+
+      d3.csv('http://vis.lab.djosix.com:2024/data/iris.csv').then((data) => {
+        // 過濾掉空行
+        data = data.filter(
+          (d) =>
+            d['sepal length'] &&
+            d['sepal width'] &&
+            d['petal length'] &&
+            d['petal width'] &&
+            d['class'],
+        );
+        data.forEach((d) => {
+          d.sepalLength = +d['sepal length'];
+          d.sepalWidth = +d['sepal width'];
+          d.petalLength = +d['petal length'];
+          d.petalWidth = +d['petal width'];
+        });
+        //data.pop();
+        const xSelect = d3.select('#x-axis');
+        const ySelect = d3.select('#y-axis');
+
+        function drawPlot() {
+          const xValue = xSelect.property('value');
+          const yValue = ySelect.property('value');
+
+          const x = d3
+            .scaleLinear()
+            .domain(d3.extent(data, (d) => d[xValue]))
+            .nice()
+            .range([0, width]);
+
+          const y = d3
+            .scaleLinear()
+            .domain(d3.extent(data, (d) => d[yValue]))
+            .nice()
+            .range([height, 0]);
+
+          svg.selectAll('*').remove();
+
+          // 添加 x 軸格線
+          svg
+            .append('g')
+            .attr('class', 'grid')
+            .attr('transform', `translate(0,${height})`)
+            .call(
+              d3
+                .axisBottom(x)
+                .tickSize(-height)
+                .tickFormat(''),
+            );
+
+          // 添加 y 軸格線
+          svg
+            .append('g')
+            .attr('class', 'grid')
+            .call(
+              d3
+                .axisLeft(y)
+                .tickSize(-width)
+                .tickFormat(''),
+            );
+
+          svg
+            .append('g')
+            .attr('transform', `translate(0,${height})`)
+            .call(d3.axisBottom(x))
+            .append('text')
+            .attr('class', 'axis-label')
+            .attr('x', width / 2)
+            .attr('y', 75)
+            .style('text-anchor', 'end')
+            .text(xValue);
+
+          svg
+            .append('g')
+            .call(d3.axisLeft(y))
+            .append('text')
+            .attr('class', 'axis-label')
+            .attr('transform', 'rotate(-90)')
+            .attr('x', -height / 2)
+            .attr('y', -93)
+            .style('text-anchor', 'end')
+            .text(yValue);
+
+          const circles = svg
+            .selectAll('circle')
+            .data(data);
+          circles
+            .enter()
+            .append('circle')
+            .attr('cx', width / 2)
+            .attr('cy', height / 2)
+            .attr('r', 0)
+            .style('fill', (d) => color(d.class))
+            .transition()
+            .duration(1500)
+            .delay((d, i) => i * 10)
+            .attr('cx', (d) => x(d[xValue]))
+            .attr('cy', (d) => y(d[yValue]))
+            .attr('r', 8);
+
+          const dotcolor = svg
+            .selectAll('.dotcolor')
+            .data(color.domain())
+            .enter()
+            .append('g')
+            .attr('class', 'dotcolor')
+            .attr(
+              'transform',
+              (d, i) => `translate(0,${i * 20})`,
+            );
+
+          dotcolor
+            .append('circle')
+            .attr('cx', width + 50)
+            .attr('cy', 18)
+            .attr('r', 6)
+            .style('fill', color);
+
+          dotcolor
+            .append('text')
+            .attr('x', width + 128)
+            .attr('y', 18)
+            .attr('dy', '.35em')
+            .style('text-anchor', 'end')
+            .text((d) => d);
+        }
+
+        xSelect.on('change', drawPlot);
+        ySelect.on('change', drawPlot);
+        /*xSelect.on('change', () => updateChart(false));
+        ySelect.on('change', () => updateChart(false));*/
+
+        drawPlot();
+      });
+    </script>
+  </body>
+</html>

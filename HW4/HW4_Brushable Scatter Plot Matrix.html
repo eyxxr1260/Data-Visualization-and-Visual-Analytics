@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>
+      Brushable Scatter Plot Matrix of Iris Dataset
+    </title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+      }
+      svg {
+        font: 12px sans-serif;
+        margin: 10px;
+      }
+
+      .axis {
+        shape-rendering: crispEdges;
+      }
+
+      .axis line {
+        stroke: #adadad;
+      }
+
+      .cell text {
+        font-weight: bold;
+        text-transform: capitalize;
+        fill: black;
+      }
+
+      .frame {
+        fill: none;
+        stroke: #adadad;
+        shape-rendering: crispEdges;
+      }
+
+      circle {
+        fill-opacity: 0.7;
+        transition:
+          transform 0.2s,
+          r 0.2s,
+          fill-opacity 0.2s;
+      }
+
+      circle.hidden {
+        fill: #d0d0d0 !important;
+      }
+
+      circle:hover {
+        stroke: #000;
+        stroke-width: 1.5px;
+        r: 6;
+        fill-opacity: 1;
+      }
+
+      .extent {
+        fill: #000000;
+        fill-opacity: 0.15;
+        stroke: #ffffff;
+      }
+
+      /* Tooltip styles */
+      .tooltip {
+        position: absolute;
+        text-align: left;
+        width: auto;
+        padding: 8px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 1px solid #000;
+        border-radius: 4px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Brushable Scatter Plot Matrix of Iris Dataset</h1>
+    <p>
+      You can select region in any scatter plot to highlight
+      data points across all plots.
+    </p>
+
+    <br />
+    <div id="plot"></div>
+    <!-- Tooltip div -->
+    <div class="tooltip" id="tooltip"></div>
+  </body>
+
+  <script
+    src="https://d3js.org/d3.v4.min.js"
+    charset="utf-8"
+  ></script>
+  <script>
+    // Define the x-axis scale as a linear scale with padding
+    var x = d3
+      .scaleLinear()
+      .range([30 / 2, 200 - 30 / 2])
+      .nice();
+
+    // Define the y-axis scale as a linear scale with padding
+    var y = d3
+      .scaleLinear()
+      .range([200 - 30 / 2, 30 / 2])
+      .nice();
+
+    // Create an x-axis generator based on the x scale
+    var xAxis = d3
+      .axisBottom()
+      .scale(x)
+      .ticks(6)
+      .tickFormat('');
+
+    // Create a y-axis generator based on the y scale
+    var yAxis = d3
+      .axisLeft()
+      .scale(y)
+      .ticks(6)
+      .tickFormat('');
+
+    // Features (columns) of the dataset
+    const features = [
+      'sepal length',
+      'sepal width',
+      'petal length',
+      'petal width',
+    ];
+
+    // Color scale for different Iris species
+    const color = d3
+      .scaleOrdinal()
+      .domain([
+        'Iris-setosa',
+        'Iris-versicolor',
+        'Iris-virginica',
+      ])
+      .range(['#5A5AAD', '#808040', '#408080']);
+
+    // Function to create cross product of two arrays
+    function cross(a, b) {
+      var c = [],
+        n = a.length,
+        m = b.length;
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          c.push({
+            x: a[i],
+            i: i,
+            y: b[j],
+            j: j,
+          });
+        }
+      }
+
+      return c;
+    }
+
+    // Load the dataset
+    d3.csv('http://vis.lab.djosix.com:2024/data/iris.csv', function (error, data) {
+      if (error) throw error;
+
+      // Filter out rows with missing values
+      data = data.filter(
+        (d) =>
+          d['sepal length'] &&
+          d['sepal width'] &&
+          d['petal length'] &&
+          d['petal width'] &&
+          d['class'],
+      );
+
+      console.log(data);
+
+      // Define the domain (min/max) for each feature
+      var domainByTrait = {},
+        traits = d3.keys(data[0]).filter(function (d) {
+          return d !== 'class';
+        }),
+        n = traits.length;
+
+      traits.forEach(function (trait) {
+        domainByTrait[trait] = d3.extent(
+          data,
+          function (d) {
+            return +d[trait];
+          },
+        );
+      });
+
+      // Set tick size for the axes based on the number of traits
+      xAxis.tickSize(200 * n);
+      yAxis.tickSize(-200 * n);
+
+      // Define the brush behavior for selecting points
+      var brush = d3
+        .brush()
+        .on('start', brushstart)
+        .on('brush', brushing)
+        .on('end', brushend)
+        .extent([
+          [15, 15],
+          [200 - 15, 200 - 15],
+        ]);
+
+      // Create the SVG container for the plots
+      var svg = d3
+        .select('#plot')
+        .append('svg')
+        .attr('width', 200 * n + 30)
+        .attr('height', 200 * n + 30)
+        .append('g')
+        .attr(
+          'transform',
+          'translate(' + 30 + ',' + 30 / 2 + ')',
+        );
+
+      // Create the cells for each pair of features (scatter plots or histograms)
+      var cell = svg
+        .selectAll('.cell')
+        .data(cross(traits, traits))
+        .enter()
+        .append('g')
+        .attr('class', 'cell')
+        .attr('transform', function (d) {
+          return (
+            'translate(' +
+            (n - d.i - 1) * 200 +
+            ',' +
+            d.j * 200 +
+            ')'
+          );
+        })
+        .each(plot); // Create the scatter plot or histogram in each cell
+
+      // Attach the brush behavior to each cell
+      cell.call(brush);
+
+      // Tooltip setup
+      var tooltip = d3.select('#tooltip');
+
+      // Function to plot either scatter plots or histograms
+      function plot(p) {
+        var cell = d3.select(this);
+
+        // Set the x and y domains for the current pair of traits
+        x.domain(domainByTrait[p.x]);
+        y.domain(domainByTrait[p.y]);
+
+        var position = d3
+          .scalePoint()
+          .domain(features)
+          .range([0, 1]);
+
+        if (p.x != p.y) {
+          // Scatter plot case (for different features)
+          var showThis = cell
+            .append('g')
+            .attr(
+              'transform',
+              `translate(${position(p.x) + 30 / 2},${position(p.y) + 30 / 2})`,
+            );
+
+          // Add a frame around the scatter plot
+          showThis
+            .append('rect')
+            .attr('class', 'frame')
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', 200 - 30)
+            .attr('height', 200 - 30);
+
+          // X and Y axis scales for the scatter plot
+          var xextent = d3.extent(data, function (d) {
+            return +d[p.x];
+          });
+          var x1 = d3
+            .scaleLinear()
+            .domain(xextent)
+            .range([30 / 2, 200 - 30 / 2]);
+
+          var yextent = d3.extent(data, function (d) {
+            return +d[p.y];
+          });
+          var y1 = d3
+            .scaleLinear()
+            .domain(yextent)
+            .range([200 - 30 / 2, 30 / 2]);
+
+          // Add X and Y axes to the scatter plot
+          showThis
+            .append('g')
+            .attr(
+              'transform',
+              `translate(${-30 / 2}, ${200 - 30})`,
+            )
+            .call(d3.axisBottom().scale(x1).ticks(6));
+          showThis
+            .append('g')
+            .attr('transform', `translate(0, ${-30 / 2})`)
+            .call(d3.axisLeft().scale(y1).ticks(6));
+
+          // Plot the data points (circles) for the scatter plot
+          cell
+            .selectAll('circle')
+            .data(data)
+            .enter()
+            .append('circle')
+            .attr('cx', function (d) {
+              return x(+d[p.x]);
+            })
+            .attr('cy', function (d) {
+              return y(+d[p.y]);
+            })
+            .attr('r', 4)
+            .style('fill', function (d) {
+              return color(d.class);
+            })
+            .style('opacity', 0)
+            .transition()
+            .duration(1000)
+            .style('opacity', 0.7);
+
+          cell
+            .selectAll('circle')
+            .on('mouseover', function (d) {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr('r', 6)
+                .style('fill-opacity', 1);
+
+              tooltip
+                .style('opacity', 1)
+                .html(
+                  `<strong>Species:</strong> ${d.class}<br/>
+                     <strong>${p.x}:</strong> ${d[p.x]}<br/>
+                     <strong>${p.y}:</strong> ${d[p.y]}`,
+                )
+                .style('left', d3.event.pageX + 10 + 'px')
+                .style('top', d3.event.pageY - 28 + 'px');
+            })
+            .on('mousemove', function (d) {
+              tooltip
+                .style('left', d3.event.pageX + 10 + 'px')
+                .style('top', d3.event.pageY - 28 + 'px');
+            })
+            .on('mouseout', function (d) {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr('r', 4)
+                .style('fill-opacity', 0.5);
+
+              tooltip.style('opacity', 0);
+            });
+        } else {
+          // Histogram case (for identical features)
+          var showThis = cell
+            .append('g')
+            .attr(
+              'transform',
+              `translate(${position(p.x) + 30 / 2},${position(p.y) + 30 / 2})`,
+            );
+
+          // X axis for the histogram
+          var xextent = d3.extent(data, function (d) {
+            return +d[p.x];
+          });
+          var x2 = d3
+            .scaleLinear()
+            .domain(xextent)
+            .nice()
+            .range([0, 200 - 30]);
+
+          // Generate bins for the histogram
+          var histogram = d3
+            .histogram()
+            .value(function (d) {
+              return +d[p.x];
+            })
+            .domain(x2.domain())
+            .thresholds(x2.ticks(15));
+
+          var bins = histogram(data);
+
+          // Y axis scale for the histogram
+          var y2 = d3
+            .scaleLinear()
+            .range([200 - 30, 0])
+            .domain([
+              0,
+              d3.max(bins, function (d) {
+                return d.length;
+              }),
+            ]);
+
+          showThis
+            .append('g')
+            .attr('transform', `translate(${0}, ${0})`)
+            .selectAll('rect')
+            .data(bins)
+            .enter()
+            .append('rect')
+            .attr('x', 1)
+            .attr('transform', function (d) {
+              return (
+                'translate(' +
+                x2(d.x0) +
+                ',' +
+                y2(d.length) +
+                ')'
+              );
+            })
+            .attr('width', function (d) {
+              return x2(d.x1) - x2(d.x0) - 1;
+            })
+            .attr('height', 0)
+            .style('fill', '#C48888')
+            .attr('stroke', 'white')
+            .transition()
+            .duration(1000)
+            .attr('height', function (d) {
+              return 200 - 30 - y2(d.length);
+            });
+
+          // Add labels and frames for the histogram
+          showThis
+            .append('text')
+            .text(p.x)
+            .attr('text-anchor', 'middle')
+            .attr('x', 200 / 2 - 30 / 2)
+            .attr('y', 30 / 2)
+            .style('fill', '#000000')
+            .style('font-size', 12);
+
+          showThis
+            .append('rect')
+            .attr('class', 'frame')
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', 200 - 30)
+            .attr('height', 200 - 30);
+
+          showThis
+            .append('g')
+            .attr(
+              'transform',
+              `translate(${0}, ${200 - 30})`,
+            )
+            .call(d3.axisBottom().scale(x2).ticks(6));
+          showThis
+            .append('g')
+            .attr('transform', `translate(0, ${0})`)
+            .call(d3.axisLeft().scale(y2).ticks(6));
+        }
+      }
+
+      // Add legend for Iris species
+      svg
+        .append('circle')
+        .attr('cx', (200 * n) / 2 - 130)
+        .attr('cy', -3)
+        .attr('r', 4)
+        .style('fill', '#5A5AAD');
+      svg
+        .append('text')
+        .attr('text-anchor', 'middle')
+        .attr('x', (200 * n) / 2 - 100)
+        .attr('y', 0)
+        .text('Iris-setosa')
+        .style('fill', '#5A5AAD');
+      svg
+        .append('circle')
+        .attr('cx', (200 * n) / 2 - 40)
+        .attr('cy', -3)
+        .attr('r', 4)
+        .style('fill', '#808040');
+      svg
+        .append('text')
+        .attr('text-anchor', 'middle')
+        .attr('x', (200 * n) / 2)
+        .attr('y', 0)
+        .text('Iris-versicolor')
+        .style('fill', '#808040');
+      svg
+        .append('circle')
+        .attr('cx', (200 * n) / 2 + 65)
+        .attr('cy', -3)
+        .attr('r', 4)
+        .style('fill', '#408080');
+      svg
+        .append('text')
+        .attr('text-anchor', 'middle')
+        .attr('x', (200 * n) / 2 + 100)
+        .attr('y', 0)
+        .text('Iris-virginica')
+        .style('fill', '#408080');
+
+      var selectedPoint;
+
+      // Handle the start of a brushing event
+      function brushstart(p) {
+        if (selectedPoint !== this) {
+          d3.select(selectedPoint).call(brush.move, null);
+          selectedPoint = this;
+          x.domain(domainByTrait[p.x]);
+          y.domain(domainByTrait[p.y]);
+        }
+      }
+
+      // Handle brushing over scatter plots
+      function brushing(p) {
+        var e = d3.brushSelection(this);
+        svg
+          .selectAll('circle')
+          .classed('hidden', function (d) {
+            if (!e) {
+              return false;
+            } else {
+              if (p.x == p.y) {
+                return false;
+              } else {
+                return (
+                  e[0][0] > x(+d[p.x]) ||
+                  x(+d[p.x]) > e[1][0] ||
+                  e[0][1] > y(+d[p.y]) ||
+                  y(+d[p.y]) > e[1][1]
+                );
+              }
+            }
+          });
+      }
+
+      // Reset circles when brushing ends
+      function brushend() {
+        var e = d3.brushSelection(this);
+        if (e === null)
+          svg.selectAll('.hidden').classed('hidden', false);
+      }
+    });
+  </script>
+</html>

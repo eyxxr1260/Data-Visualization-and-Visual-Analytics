@@ -1,0 +1,562 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      Stack Bar Charts of World University Rankings
+    </title>
+    <style>
+      /* Set the font family for all text elements */
+      text {
+        font-family: 'Times New Roman', Times, serif;
+      }
+
+      /* Style for axis tick labels */
+      .tick text {
+        fill: #635f5d;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12px;
+      }
+
+      /* Style for axis tick lines */
+      .tick line {
+        stroke: #c0c0bb;
+      }
+
+      /* Style for the dropdown menus */
+      #menus {
+        font-size: 25px;
+        text-align: center;
+        font-family: 'Times New Roman', Times, serif;
+      }
+
+      /* Style for the select elements in the menus */
+      #menus select {
+        font-family: 'Times New Roman', Times, serif;
+        background: #b3b3b3;
+        color: #fff;
+        margin: 5px;
+        padding: 8px;
+        width: 240px;
+        border: none;
+        font-size: 25px;
+      }
+
+      /* Style for the options in the select elements */
+      #menus select option {
+        text-align: center;
+        font-size: 25px;
+      }
+
+      /* Style for the tooltip */
+      .tooltip {
+        position: absolute;
+        opacity: 0;
+        background-color: #fdc086;
+        padding: 5px;
+        pointer-events: none;
+      }
+
+      /* Style for inactive legend items */
+      .legendItem.inactive {
+        opacity: 0.5;
+      }
+
+      /* Style for the instructions */
+      #instructions {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 18px;
+        margin: 20px;
+        text-align: center;
+      }
+
+      /* Add cursor pointer and transition for legend items */
+      .legendItem {
+        cursor: pointer;
+      }
+
+      /* Hover effect for legend squares */
+      .legendItem:hover {
+        stroke: black;
+        stroke-width: 2;
+      }
+    </style>
+    <!-- Include the D3.js library -->
+    <script src="https://d3js.org/d3.v7.js"></script>
+  </head>
+
+  <body>
+    <!-- Page title -->
+    <h1 style="text-align: center">
+      Stack Bar Charts of World University Rankings
+    </h1>
+    <div id="instructions">
+      <p>
+        1. Use the dropdown menus to sort the universities
+        by different criteria and order. <br />
+        2. Click on the legend items to hide or show
+        specific criteria in the chart. <br />
+        3. Hover over the bars to see detailed scores.
+      </p>
+    </div>
+    <!-- Dropdown menus for sorting options -->
+    <div id="menus">
+      Sorted by: <span id="class-menu"></span
+      ><span id="y-menu"></span>
+    </div>
+    <!-- Container for the legend -->
+    <div id="legend"></div>
+
+    <!-- Container for the visualization -->
+    <div id="my_dataviz"></div>
+    <script>
+      // Function to create a dropdown menu
+      const dropdownMenu = (selection, props) => {
+        const { options, onOptionClicked, selectedOption } =
+          props;
+
+        // Create or select the 'select' element
+        let select = selection
+          .selectAll('select')
+          .data([null]);
+        select = select
+          .enter()
+          .append('select')
+          .merge(select)
+          .on('change', function () {
+            // When the selection changes, call the handler
+            onOptionClicked(this.value);
+          });
+
+        // Create or update the 'option' elements
+        const option = select
+          .selectAll('option')
+          .data(options);
+        option
+          .enter()
+          .append('option')
+          .merge(option)
+          .attr('value', (d) => d)
+          .property('selected', (d) => d === selectedOption)
+          .text((d) => d);
+      };
+
+      // Function to create the charts
+      const charts = (selection, props) => {
+        const {
+          order,
+          order_attr,
+          title,
+          margin,
+          width,
+          height,
+          data,
+          activeSubgroups, // Use activeSubgroups instead of subgroups
+          color,
+        } = props;
+
+        // Sort the data based on the selected order and attribute
+        if (order == 'Descending order') {
+          data.sort((a, b) => {
+            return (
+              a[order_attr + '_rank'] -
+              b[order_attr + '_rank']
+            );
+          });
+        } else if (order == 'Ascending order') {
+          data.sort((a, b) => {
+            return (
+              b[order_attr + '_rank'] -
+              a[order_attr + '_rank']
+            );
+          });
+        }
+
+        // Select or append the main container group
+        const g = selection
+          .selectAll('.container')
+          .data([null]);
+        const gEnter = g
+          .enter()
+          .append('g')
+          .attr('class', 'container');
+
+        // Extract the group names (university names)
+        const groups = data.map((d) => d.name);
+
+        // Create the y-axis scale (band scale for the university names)
+        const y = d3
+          .scaleBand()
+          .domain(groups)
+          .range([0, height])
+          .padding(0.2);
+        const yAxis = d3
+          .axisLeft(y)
+          .tickSizeOuter(0)
+          .tickPadding(10);
+        const yAxisG = g.select('.y-axis');
+        const yAxisGEnter = gEnter
+          .append('g')
+          .attr('class', 'y-axis');
+        yAxisG
+          .merge(yAxisGEnter)
+          .call(yAxis)
+          .selectAll('.domain')
+          .remove();
+
+        // Rotate y-axis labels (optional, commented out)
+        yAxisG
+          .merge(yAxisGEnter)
+          .selectAll('.tick text')
+          //.attr('transform', 'rotate(-5)')
+          .style('text-anchor', 'end');
+
+        // Create the x-axis scale (linear scale for the scores)
+        const x = d3
+          .scaleLinear()
+          .domain([0, 500])
+          .range([0, width]);
+        const xAxis = d3
+          .axisTop(x)
+          .tickSize(height)
+          .tickPadding(10);
+        const xAxisG = g.select('.x-axis');
+        const xAxisGEnter = gEnter
+          .append('g')
+          .attr('class', 'x-axis');
+        xAxisG
+          .merge(xAxisGEnter)
+          .attr('transform', `translate(0,${height})`)
+          .call(xAxis)
+          .selectAll('.domain')
+          .remove();
+        // **Add x-axis label**
+        const xAxisLabelText = xAxisGEnter
+          .append('text')
+          .attr('class', 'axis-label')
+          .attr('y', -35877)
+          .attr('fill', 'black')
+          .attr('text-anchor', 'middle')
+          .merge(xAxisG.select('.axis-label'))
+          .attr('x', width / 2)
+          .attr('font-size', '20px')
+          .text('Total score')
+          .style('opacity', 0.7);
+
+        // Stack the data for the stacked bar chart using activeSubgroups
+        const stackedData = d3
+          .stack()
+          .keys(activeSubgroups)(data);
+
+        // Create the tooltip div
+        const tooltip = d3
+          .select('body')
+          .append('div')
+          .attr('class', 'tooltip');
+
+        // Mouseover event handler
+        const mouseover = function (_d) {
+          tooltip.style('opacity', 1.0);
+          d3.select(this).style('opacity', 0.7);
+        };
+
+        // Mousemove event handler
+        const mousemove = function (event, d) {
+          const formatter = d3.format(',.1f');
+          tooltip
+            .html(
+              `<strong>Name:</strong> ${d.data.name}<br>` +
+                `<strong>${d3.select(this.parentNode).datum().key}:</strong> ${formatter(
+                  d[1] - d[0],
+                )}<br>` +
+                `<strong>Overall Score:</strong> ${formatter(d.data.scores_overall)}` +
+                `<br>` +
+                `<strong>Total Score:</strong> ${formatter(d.data.scores_teaching + d.data.scores_research + d.data.scores_citations + d.data.scores_industry_income + d.data.scores_international_outlook)}`,
+            )
+            .style('top', event.pageY - 20 + 'px')
+            .style('left', event.pageX + 20 + 'px');
+        };
+
+        // Mouseleave event handler
+        const mouseleave = function (_d) {
+          tooltip.style('opacity', 0);
+          d3.select(this).style('opacity', 1);
+          tooltip.attr('x', '0').attr('y', '0');
+        };
+
+        // Create the bars for the stacked bar chart with transitions
+        const layers = gEnter
+          .merge(g)
+          .selectAll('.layer')
+          .data(stackedData, (d) => d.key);
+
+        layers.exit().remove();
+
+        const layersEnter = layers
+          .enter()
+          .append('g')
+          .attr('class', 'layer')
+          .attr('fill', (d) => color(d.key));
+
+        layersEnter
+          .merge(layers)
+          .attr('fill', (d) => color(d.key));
+
+        const bars = layersEnter
+          .merge(layers)
+          .selectAll('rect')
+          .data((d) => d);
+
+        bars
+          .enter()
+          .append('rect')
+          .attr('y', (d) => y(d.data.name))
+          .attr('height', y.bandwidth())
+          .attr('x', x(0))
+          .attr('width', 0)
+          .merge(bars)
+          .on('mouseover', mouseover)
+          .on('mousemove', mousemove)
+          .on('mouseleave', mouseleave)
+          .transition()
+          .duration(1000)
+          .attr('y', (d) => y(d.data.name))
+          .attr('x', (d) => x(d[0]))
+          .attr('width', (d) => x(d[1]) - x(d[0]))
+          .attr('height', y.bandwidth());
+
+        bars.exit().remove();
+      };
+
+      // Variables for selected columns and data
+      let xColumn, yColumn, data;
+      // Active subgroups for the stacked bar chart
+      let activeSubgroups = [
+        'scores_teaching',
+        'scores_research',
+        'scores_citations',
+        'scores_industry_income',
+        'scores_international_outlook',
+      ];
+
+      // Subgroups for the legend (full list)
+      const subgroups = [
+        'scores_teaching',
+        'scores_research',
+        'scores_citations',
+        'scores_industry_income',
+        'scores_international_outlook',
+      ];
+
+      // Handler for when an x-axis attribute is selected
+      const onXColumnClicked = (column) => {
+        xColumn = column;
+        svg.selectAll('*').remove();
+        render();
+      };
+      // Handler for when a sorting order is selected
+      const onYColumnClicked = (column) => {
+        yColumn = column;
+        svg.selectAll('*').remove();
+        render();
+      };
+
+      // Main render function
+      const render = () => {
+        // Create the dropdown menu for selecting the x-axis attribute
+        d3.select('#class-menu').call(dropdownMenu, {
+          options: [
+            'scores_overall',
+            'scores_teaching',
+            'scores_research',
+            'scores_citations',
+            'scores_industry_income',
+            'scores_international_outlook',
+          ],
+          onOptionClicked: onXColumnClicked,
+          selectedOption: xColumn,
+        });
+        // Create the dropdown menu for selecting the sorting order
+        d3.select('#y-menu').call(dropdownMenu, {
+          options: ['Ascending order', 'Descending order'],
+          onOptionClicked: onYColumnClicked,
+          selectedOption: yColumn,
+        });
+        // Call the chart function to render the chart
+        svg.selectAll('*').remove(); // Clear previous chart
+        svg.call(charts, {
+          order_attr: xColumn,
+          order: yColumn,
+          margin,
+          width,
+          height,
+          data,
+          activeSubgroups, // Pass activeSubgroups instead of subgroups
+          color,
+        });
+      };
+
+      // Color scale for the subgroups
+      const color = d3
+        .scaleOrdinal()
+        .domain(subgroups)
+        .range([
+          '#C48888',
+          '#5A5AAD',
+          '#80b1d3',
+          '#408080',
+          '#808040',
+        ]);
+
+      // Define the margins and dimensions of the SVG container
+      const margin = {
+          top: 50,
+          right: 200,
+          bottom: 100,
+          left: 200,
+        },
+        width = 1000 - margin.left - margin.right,
+        height = 36000 - margin.top - margin.bottom;
+
+      // Create the main SVG container
+      const svg = d3
+        .select('#my_dataviz')
+        .append('svg')
+        .attr(
+          'width',
+          width + margin.left + margin.right * 2,
+        )
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        // Apply a transform to account for margins
+        .attr(
+          'transform',
+          `translate(${margin.left + 300},${margin.top})`,
+        );
+
+      // Create the legend
+      const createLegend = () => {
+        const legendSvg = d3
+          .select('#legend')
+          .selectAll('svg')
+          .data([null]);
+
+        const legendSvgEnter = legendSvg
+          .enter()
+          .append('svg')
+          .attr('width', 400)
+          .attr('height', 150);
+
+        const legendItems = legendSvgEnter
+          .merge(legendSvg)
+          .selectAll('.legendItem')
+          .data(subgroups);
+
+        // Remove old legend items
+        legendItems.exit().remove();
+
+        // Append colored rectangles for the legend
+        const legendRects = legendItems
+          .enter()
+          .append('rect')
+          .attr('class', 'legendItem')
+          .attr('x', 0)
+          .attr('y', (d, i) => 30 * i)
+          .attr('width', 20)
+          .attr('height', 20)
+          .attr('transform', `translate(${margin.left},10)`)
+          .merge(legendItems.select('rect'))
+          .style('fill', (d) => color(d))
+          .attr('class', (d) =>
+            activeSubgroups.includes(d)
+              ? 'legendItem'
+              : 'legendItem inactive',
+          )
+          .on('mouseover', function (event, d) {
+            d3.select(this)
+              .attr('stroke', 'black')
+              .attr('stroke-width', 2);
+          })
+          .on('mouseout', function (event, d) {
+            d3.select(this)
+              .attr('stroke', null)
+              .attr('stroke-width', null);
+          })
+          .on('click', (event, d) => {
+            // Toggle active state
+            if (activeSubgroups.includes(d)) {
+              activeSubgroups = activeSubgroups.filter(
+                (s) => s !== d,
+              );
+            } else {
+              activeSubgroups.push(d);
+            }
+            render();
+          });
+
+        // Append text labels for the legend
+        legendItems
+          .enter()
+          .append('text')
+          .attr('x', 30)
+          .attr('y', (d, i) => 30 * i + 15)
+          .attr('transform', `translate(${margin.left},10)`)
+          .style('font-size', '13px')
+          .text((d) => d)
+          .merge(legendItems.select('text'))
+          .attr('class', (d) =>
+            activeSubgroups.includes(d) ? '' : 'inactive',
+          )
+          .style('cursor', 'pointer')
+          .on('click', (event, d) => {
+            // Toggle active state
+            if (activeSubgroups.includes(d)) {
+              activeSubgroups = activeSubgroups.filter(
+                (s) => s !== d,
+              );
+            } else {
+              activeSubgroups.push(d);
+            }
+            render();
+          });
+      };
+
+      // Load the data from CSV file
+      d3.csv(
+        'TIMES_WorldUniversityRankings_2024.csv',
+      ).then((loadedData) => {
+        data = loadedData;
+        // Filter out rows where rank is 'Reporter'
+        data = data.filter((d) => {
+          return d.rank !== 'Reporter';
+        });
+        // Process the data
+        data.forEach((d) => {
+          // Truncate 'scores_overall' if it's longer than 4 characters
+          if (d['scores_overall'].length > 4) {
+            d['scores_overall'] = d[
+              'scores_overall'
+            ].substring(0, 3);
+          }
+          // Convert string values to numbers
+          d['scores_overall'] = +d['scores_overall'];
+          d['scores_teaching'] = +d['scores_teaching'];
+          d['scores_research'] = +d['scores_research'];
+          d['scores_citations'] = +d['scores_citations'];
+          d['scores_industry_income'] =
+            +d['scores_industry_income'];
+          d['scores_international_outlook'] =
+            +d['scores_international_outlook'];
+        });
+
+        // Set initial selected columns
+        xColumn = 'scores_overall';
+        yColumn = 'Descending order';
+
+        // Create the legend and render the chart
+        createLegend();
+        render();
+      });
+    </script>
+  </body>
+</html>

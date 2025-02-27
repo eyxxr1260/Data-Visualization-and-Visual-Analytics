@@ -1,0 +1,317 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Correlation Matrix</title>
+    <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
+    <style>
+      /* Basic page styling */
+      body {
+        font-family: Arial, sans-serif;
+      }
+
+      /* Title styling */
+      h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      p {
+        text-align: center;
+      }
+      small {
+        text-align: center;
+      }
+
+      .center-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding-top: 50px;
+      }
+
+      .button-container {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .button-container button {
+        background-color: #d2b48c;
+        border: none;
+        color: white;
+        padding: 10px 24px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        transition:
+          background-color 0.3s,
+          transform 0.3s;
+      }
+
+      .button-container button:hover {
+        background-color: #cd853f;
+        transform: translateY(-2px);
+      }
+
+      .button-container button:active {
+        background-color: #3e8e41;
+        transform: translateY(0);
+      }
+
+      svg {
+        font: 12px sans-serif;
+        text-anchor: middle;
+      }
+
+      rect {
+        stroke: lightgray;
+        stroke-width: 1px;
+        fill: none;
+      }
+
+      .y.axis path {
+        fill: none;
+        stroke: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="title">Correlation Matrix of Abalone</h1>
+    <p>
+      Select a gender below to visualize the correlation
+      matrix for different attributes of abalone data
+    </p>
+
+    <!-- Button container -->
+    <div class="button-container">
+      <button onclick="updateSex('F')">Female</button>
+      <button onclick="updateSex('M')">Male</button>
+      <button onclick="updateSex('I')">Infant</button>
+    </div>
+
+    <div class="center-container">
+      <div id="graph"></div>
+      <br />
+      <small
+        >Correlation matrices show the relationship between
+        two attributes.</small
+      >
+      <br />
+      <small>
+        A value close to 1 indicates a strong positive
+        correlation.
+      </small>
+    </div>
+
+    <script>
+      const attributes = [
+        'Length',
+        'Diameter',
+        'Height',
+        'Whole weight',
+        'Shucked weight',
+        'Viscera weight',
+        'Shell weight',
+        'Rings',
+      ];
+      const header = [
+        'Sex',
+        'Length',
+        'Diameter',
+        'Height',
+        'Whole weight',
+        'Shucked weight',
+        'Viscera weight',
+        'Shell weight',
+        'Rings',
+      ];
+      let sex = null;
+      const CSV_URL = 'http://vis.lab.djosix.com:2024/data/abalone.data';
+
+      const margin = {
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 50,
+      };
+      const width = 600 - margin.left - margin.right;
+      const height = 600 - margin.top - margin.bottom;
+
+      const colorScales = {
+        M: ['#fff', '#408080'],
+        F: ['#fff', '#5A5AAD'],
+        I: ['#fff', '#808040'],
+      };
+
+      function updateSex(newSex) {
+        sex = newSex;
+        document.getElementById('title').textContent =
+          `Correlation Matrix for ${newSex === 'F' ? 'Female' : newSex === 'M' ? 'Male' : 'Infant'} Abalone Data`;
+        plot();
+      }
+
+      function plot() {
+        if (!sex) return;
+
+        fetch(CSV_URL)
+          .then((response) => response.text())
+          .then((csvData) => {
+            const rows = csvData.split('\n').map((row) => {
+              const values = row.split(',');
+              const rowData = {};
+              header.forEach(
+                (label, index) =>
+                  (rowData[label] = values[index]),
+              );
+              return rowData;
+            });
+
+            const filteredData = rows.filter(
+              (d) => d.Sex === sex,
+            );
+            const correlationMatrix =
+              calculateCorrelationMatrix(filteredData);
+            rendergraph(correlationMatrix);
+          });
+      }
+
+      function calculateCorrelationMatrix(data) {
+        const num = attributes.length;
+        const matrix = [];
+
+        for (let i = 0; i < num; i++) {
+          const row = [];
+          for (let j = 0; j < num; j++) {
+            const correlation = calculateCorrelation(
+              data.map((d) => +d[attributes[i]]),
+              data.map((d) => +d[attributes[j]]),
+            );
+            row.push(correlation);
+          }
+          matrix.push(row);
+        }
+
+        return matrix;
+      }
+
+      // Calculate correlation between two arrays
+      function calculateCorrelation(x, y) {
+        const n = x.length;
+        const sumX = d3.sum(x);
+        const sumY = d3.sum(y);
+        const sumXSquare = d3.sum(x.map((d) => d * d));
+        const sumYSquare = d3.sum(y.map((d) => d * d));
+        const sumXY = d3.sum(x.map((xi, i) => xi * y[i]));
+
+        const numerator = n * sumXY - sumX * sumY;
+        const denominator = Math.sqrt(
+          (n * sumXSquare - sumX * sumX) *
+            (n * sumYSquare - sumY * sumY),
+        );
+
+        return denominator ? numerator / denominator : 0;
+      }
+
+      // Render the graph based on the correlation matrix
+      function rendergraph(corrMatrix) {
+        d3.select('#graph').selectAll('svg').remove();
+
+        const svg = d3
+          .select('#graph')
+          .append('svg')
+          .attr('width', width + margin.left + margin.right)
+          .attr(
+            'height',
+            height + margin.top + margin.bottom,
+          )
+          .append('g')
+          .attr(
+            'transform',
+            `translate(${margin.left},${margin.top})`,
+          );
+
+        const data = [];
+        for (let i = 0; i < attributes.length; i++) {
+          for (let j = 0; j < attributes.length; j++) {
+            data.push({
+              x: attributes[i],
+              y: attributes[j],
+              value: corrMatrix[i][j],
+            });
+          }
+        }
+
+        const colorRange = colorScales[sex];
+        const colorScale = d3
+          .scaleLinear()
+          .domain([0, 1])
+          .range(colorRange);
+
+        const sizeScale = d3
+          .scaleSqrt()
+          .domain([0, 1])
+          .range([0, 8]);
+
+        const xScale = d3
+          .scalePoint()
+          .range([0, width])
+          .domain(attributes);
+
+        const yScale = d3
+          .scalePoint()
+          .range([0, height])
+          .domain(attributes);
+
+        const cells = svg
+          .selectAll('.cm')
+          .data(data)
+          .enter()
+          .append('g')
+          .attr('class', 'cm')
+          .attr(
+            'transform',
+            (d) =>
+              `translate(${xScale(d.x)},${yScale(d.y)})`,
+          );
+
+        // Add text labels
+        cells
+          .filter(
+            (d) =>
+              attributes.indexOf(d.y) <=
+              attributes.indexOf(d.x),
+          )
+          .append('text')
+          .attr('x', (d) => (d.x === d.y ? -20 : -10))
+          .attr('y', 5)
+          .text((d) =>
+            d.x === d.y ? d.x : d.value.toFixed(2),
+          )
+          .style('font-size', 12)
+          .style('fill', (d) =>
+            d.x === d.y ? '#000' : colorScale(d.value),
+          );
+
+        cells
+          .filter(
+            (d) =>
+              attributes.indexOf(d.y) >
+              attributes.indexOf(d.x),
+          )
+          .append('circle')
+          .attr(
+            'r',
+            (d) => sizeScale(Math.abs(d.value)) * 1.5,
+          )
+          .style('fill', (d) => colorScale(d.value));
+      }
+    </script>
+  </body>
+</html>
