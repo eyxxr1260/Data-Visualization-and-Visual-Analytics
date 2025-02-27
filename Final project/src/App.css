@@ -1,0 +1,115 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+.app-container {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  font-family: sans-serif;
+}
+
+h1 {
+  text-align: left;
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+
+
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 父層為 .custom-tabs 的 nav-link */
+.custom-tabs .nav-link {
+  color: #91a5a8; /* 預設的文字顏色 */
+  transition: color 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+@keyframes bounceAnimation {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.custom-tabs{
+  border-bottom-color: #555454;
+}
+
+.custom-tabs .nav-link:hover {
+  animation: bounceAnimation 0.6s;
+  border: transparent; 
+  border-bottom-color: #b1b1b1;
+  color: #446267; /* hover 時文字顏色變深 */
+  background-color: #c5c5c5;
+  font-weight: bold;
+}
+
+
+.custom-tabs .nav-link.active {
+  font-weight: bold;
+  background-color: #b8b8b8; 
+  color: #333;
+  border: transparent; 
+  border-bottom-color: #b1b1b1;
+}
+
+
+body {
+  background-color: #555454;
+}
+
+.app-container {
+  background-color: #e0e0e1; 
+  border-radius: 0.25rem;
+ 
+  padding: 0.5rem 1rem;
+}
+
+TimeSlider{
+  color: #446267;
+}
+
+

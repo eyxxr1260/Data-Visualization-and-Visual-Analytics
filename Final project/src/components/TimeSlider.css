@@ -1,0 +1,25 @@
+.play-pause-btn {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 16px;
+    outline: none; /* 移除預設 focus 外框，視需求調整 */
+    transition: background-color 0.3s ease;
+    margin-left: 8px;
+  }
+  
+  .play-pause-btn:hover {
+    background-color: #555;
+  }
+  
+  .play-pause-btn:active {
+    background-color: #777;
+  }
+  
+  .play-pause-btn:focus {
+    outline: 2px solid #aaa; /* 或依需求調整 focus 樣式 */
+  }
+  

@@ -1,0 +1,61 @@
+/* 讓整個比較區域有點間距 */
+.comparison-container {
+    margin: 1rem;
+    font-family: Arial, sans-serif; /* 調整字體 */
+  }
+  
+  /* 讓標籤、下拉選單、checkbox 都在同一排，看起來整齊 */
+  .comparison-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem; /* 控制元素之間的間距 */
+    margin-bottom: 1rem;
+  }
+  
+  .comparison-controls label {
+    font-weight: bold;
+    color: #333;
+  }
+  
+  /* 下拉選單 (select) 的美化 */
+  .comparison-select {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background-color: #fff;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    outline: none; /* 移除內建 outline */
+  }
+  
+  /* focus 或 hover 狀態下，呈現更明顯的邊框 */
+  .comparison-select:focus,
+  .comparison-select:hover {
+    border-color: #777;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+  }
+  
+  /* checkbox 美化 */
+  .comparison-checkbox {
+    transform: scale(1.2);
+    margin-right: 6px;
+    cursor: pointer;
+  }
+  
+  /* 可以給 checkbox 整組包一個 class 更好管理 */
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-right: 1rem;
+  }
+  
+  /* 針對顯示顏色的圖例可以另外做樣式 */
+  .legend-container {
+    margin-top: 1rem;
+    font-size: 14px;
+  }
+  
+  .legend-container span {
+    margin-right: 1rem;
+  }
+  
